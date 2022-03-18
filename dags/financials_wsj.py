@@ -18,6 +18,7 @@ import urllib.request
 import os
 from google.cloud import storage
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -46,7 +47,7 @@ default_args = {
 
 
 dag = DAG(
-    dag_id = 'testing_gcs',
+    dag_id = 'financial_scrape',
     description = 'Scraping and collecting financial data of companies',
     default_args = default_args,
     schedule_interval = "@yearly",
@@ -418,6 +419,11 @@ scrape_init = DummyOperator(
     dag = dag
 )
 
+intermediate = DummyOperator(
+    task_id = 'intermediate',
+    dag = dag
+)
+
 # Scraping annual income 
 income_scraping = PythonOperator(
     task_id = 'income_scraping_data',
@@ -573,6 +579,165 @@ stage_inflation_init = GCSToBigQueryOperator(
     dag = dag
 )
 
+#####################
+# Transformation in #
+# Staging           #
+#####################
+
+# Reformat Tables, removes duplicates
+reformat_netincome_init = BigQueryOperator(
+    task_id = 'reformat_netincome_init',
+    use_legacy_sql = False,
+    sql = f'''
+    create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_init` as select * from
+    (select distinct * from ((select ticker, '2020' as year, year2020 as netincome from `{PROJECT_ID}.{STAGING_DATASET}.netincome_init`) 
+        union all   
+    (select ticker, '2019' as year, year2019 as netincome from `{PROJECT_ID}.{STAGING_DATASET}.netincome_init`) 
+        union all 
+    (select ticker, '2018' as year, year2018 as netincome from `{PROJECT_ID}.{STAGING_DATASET}.netincome_init`)))
+    ''',
+    dag = dag
+)
+
+reformat_assets_init = BigQueryOperator(
+    task_id = 'reformat_assets_init',
+    use_legacy_sql = False,
+    sql = f'''
+    create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_init` as select * from
+    (select distinct * from ((select ticker, '2020' as year, year2020 as assets from `{PROJECT_ID}.{STAGING_DATASET}.assets_init`) 
+        union all   
+    (select ticker, '2019' as year, year2019 as assets from `{PROJECT_ID}.{STAGING_DATASET}.assets_init`) 
+        union all 
+    (select ticker, '2018' as year, year2018 as assets from `{PROJECT_ID}.{STAGING_DATASET}.assets_init`)))
+    ''',
+    dag = dag
+)
+
+reformat_liab_init = BigQueryOperator(
+    task_id = 'reformat_liab_init',
+    use_legacy_sql = False,
+    sql = f'''
+    create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_init` as select * from
+    (select distinct * from ((select ticker, '2020' as year, year2020 as liability from `{PROJECT_ID}.{STAGING_DATASET}.liab_init`) 
+        union all   
+    (select ticker, '2019' as year, year2019 as liability from `{PROJECT_ID}.{STAGING_DATASET}.liab_init`) 
+        union all 
+    (select ticker, '2018' as year, year2018 as liability from `{PROJECT_ID}.{STAGING_DATASET}.liab_init`)))
+    ''',
+    dag = dag
+)
+
+reformat_equity_init = BigQueryOperator(
+    task_id = 'reformat_equity_init',
+    use_legacy_sql = False,
+    sql = f'''
+    create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_init` as select * from
+    (select distinct * from ((select ticker, '2020' as year, year2020 as equity from `{PROJECT_ID}.{STAGING_DATASET}.equity_init`) 
+        union all   
+    (select ticker, '2019' as year, year2019 as equity from `{PROJECT_ID}.{STAGING_DATASET}.equity_init`) 
+        union all 
+    (select ticker, '2018' as year, year2018 as equity from `{PROJECT_ID}.{STAGING_DATASET}.equity_init`)))
+    ''',
+    dag = dag
+)
+
+reformat_div_init = BigQueryOperator(
+    task_id = 'reformat_div_init',
+    use_legacy_sql = False,
+    sql = f'''
+    create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_init` as select * from
+    (select distinct * from ((select ticker, '2020' as year, year2020 as dividends from `{PROJECT_ID}.{STAGING_DATASET}.div_init`) 
+        union all   
+    (select ticker, '2019' as year, year2019 as dividends from `{PROJECT_ID}.{STAGING_DATASET}.div_init`) 
+        union all 
+    (select ticker, '2018' as year, year2018 as dividends from `{PROJECT_ID}.{STAGING_DATASET}.div_init`)))
+    ''',
+    dag = dag
+)
+
+# join the tables, ensure column types
+join_financials = BigQueryOperator(
+    task_id = 'join_financials',
+    use_legacy_sql = False,
+    sql = f'''
+        create table `{PROJECT_ID}.{STAGING_DATASET}.financials_join` 
+        (
+            ticker string not null,
+            year string not null,
+            netincome float64, 
+            assets float64, 
+            liability float64, 
+            equity float64, 
+            dividends float64
+        )
+        as
+        select iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
+        from 
+        (select ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
+        from 
+        (select ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
+        from (SELECT i.ticker, i.year, i.netincome, a.assets FROM `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_init` i
+                left join `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_init` a 
+                        on i.ticker = a.ticker and i.year = a.year) as ia 
+                left join `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_init` l
+                        on ia.ticker = l.ticker and ia.year = l.year) ial
+                left join `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_init` e
+                        on ial.ticker = e.ticker and ial.year = e.year) iale
+                left join `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_init` d
+                        on iale.ticker = d.ticker and iale.year = d.year
+    ''',
+    dag = dag
+)
+
+# Add financial ratio calculations
+add_financial_ratios = BigQueryOperator(
+    task_id = 'add_financial_ratios',
+    use_legacy_sql = False,
+    sql = f'''
+            create table `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
+            (
+                ticker string not null,
+                year string not null,
+                netincome float64, 
+                assets float64, 
+                liability float64, 
+                equity float64, 
+                dividends float64,
+                ROA float64,
+                ROE float64,
+                debttoequity float64,
+                networth float64
+            )
+            as
+            select ticker, year, netincome, assets, liability, equity, dividends,
+            (case when netincome is null then null
+            when netincome = 0 then 0
+            when assets is null then null
+            when assets = 0 then null 
+            else netincome/assets end) as ROA, 
+
+            (case when netincome is null then null
+            when netincome = 0 then 0
+            when equity is null then null
+            when equity = 0 then null 
+            else netincome/equity end) as ROE,
+
+            (case when liability is null then null
+            when liability = 0 then 0
+            when equity is null then null
+            when equity = 0 then null 
+            else liability/equity end) as debttoequity, 
+
+            (case when liability is null then null
+            when assets is null then null
+            else liability-assets end) as networth,  
+            from
+            `{PROJECT_ID}.{STAGING_DATASET}.financials_join`
+    ''',
+    dag = dag
+)
+
+
 ############################
 # Define Tasks Hierarchy   #
 ############################
@@ -583,4 +748,5 @@ stage_inflation_init = GCSToBigQueryOperator(
 
 start_pipeline >> scrape_init >> [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] 
 [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> financials_cloud_init
-financials_cloud_init >> [stage_netincome_init, stage_assets_init, stage_liab_init, stage_equity_init, stage_div_init, stage_inflation_init]
+financials_cloud_init >> [stage_netincome_init, stage_assets_init, stage_liab_init, stage_equity_init, stage_div_init, stage_inflation_init] >> intermediate
+intermediate >> [reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios
