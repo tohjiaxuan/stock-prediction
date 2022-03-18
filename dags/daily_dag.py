@@ -21,8 +21,8 @@ headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
-STAGING_DATASET = "stock_prediction_staging_dataset"
-PROJECT_ID = "stockprediction-344203"
+STAGING_DATASET = 'stock_prediction_staging_dataset'
+PROJECT_ID = 'stockprediction-344203'
 
 curr_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -292,34 +292,37 @@ exchange_cloud = PythonOperator(
 # Load stock prices data from GCS to BQ
 load_stock_prices = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_stock_prices',
-    bucket = stock_prediction_is3107,
+    bucket = 'stock_prediction_is3107',
     source_objects = ['stock_prices.parquet'],
-    destination_project_dataset_table = f'{project_id}:{staging_dataset}.historical_stock_prices',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.historical_stock_prices',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
+    dag = dag
 )
 
 # Load interest rate data from GCS to BQ
 load_interest_rates = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_interest_rate',
-    bucket = stock_prediction_is3107,
+    bucket = 'stock_prediction_is3107',
     source_objects = ['interest_rate.parquet'],
-    destination_project_dataset_table = f'{project_id}:{staging_dataset}.interest_rates',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.interest_rates',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
+    dag = dag
 )
 
 # Load exchange rate data from GCS to BQ
 load_exchange_rates = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_exchange_rate',
-    bucket = stock_prediction_is3107,
+    bucket = 'stock_prediction_is3107',
     source_objects = ['exchange_rate.parquet'],
-    destination_project_dataset_table = f'{project_id}:{staging_dataset}.exchange_rates',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.exchange_rates',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
+    dag = dag
 )
 
 # Start of DAG (to test)
