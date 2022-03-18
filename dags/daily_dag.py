@@ -1,4 +1,5 @@
 from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOperator
+from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
@@ -23,6 +24,7 @@ storage_client = storage.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
 STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
+DWH_DATASET = 'stock_prediction_datawarehouse'
 
 curr_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -56,6 +58,26 @@ tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
 def execute_query_with_hook(query):
     hook = PostgresHook(postgres_conn_id="postgres_local")
     hook.run(query)
+
+# Check if files exists in GCS
+def check_files(**kwargs):
+    stock = kwargs['stock']
+    int_rate = kwargs['int_rate']
+    ex_rate = kwargs['ex_rate']
+
+    if ((storage.Blob(bucket = bucket, name = stock).exists(storage_client)) and
+    (storage.Blob(bucket=bucket, name=int_rate).exists(storage_client)) and 
+    (storage.Blob(bucket=bucket, name=ex_rate).exists(storage_client))):
+        return ("Exists")
+    else:
+        return ("Initialise")
+
+# Choose between initialisation and daily path
+def choose_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='daily_file_check_task')
+    if choose == 'Exists':
+        return 'start_daily_task'
+    return 'init_db_task'
 
 # Function to obtain yfinance historial prices
 def get_stock_price(**kwargs):
@@ -207,7 +229,6 @@ def push_stock_price(**kwargs):
     curr_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet')
     print("Pushing Historical Stock Prices to Cloud")
 
-
 # Push i/r data from XCOM to Clouds
 def push_interest_rate(**kwargs):
     curr_data = kwargs['task_instance'].xcom_pull(task_ids='interest_rate_scraping_data')
@@ -220,13 +241,6 @@ def push_exchange_rate(**kwargs):
     curr_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
     print("Pushing Exchange Rates to Cloud")
 
-# Choose between initialisation and daily path
-def choose_path(**kwargs):
-    # Connect to google cloud storage
-    # Fetch to see if google cloud storage has the table already
-    print("dummy")
-    return None
-
 def finish_init(**kwargs):
     print('Initialisation Done')
 
@@ -234,7 +248,22 @@ def finish_init(**kwargs):
 ####################
 # Define Operators #
 ####################
+# Check if file exists in gcs (can change to dwh - better?)
+daily_file_check = PythonOperator(
+    task_id = 'daily_file_check_task',
+    python_callable = check_files,
+    op_kwargs = {'stock': 'stock_prices.parquet', 
+    'int_rate': 'interest_rate.parquet', 
+    'ex_rate': 'exchange_rate.parquet'},
+    dag = dag
+)
 
+choose_best_path = BranchPythonOperator(
+    task_id = 'choose_best_path_task',
+    python_callable = choose_path,
+    do_xcom_push = False,
+    dag = dag
+)
 ##################
 # Extract Stage #
 ##################
@@ -242,7 +271,7 @@ def finish_init(**kwargs):
 # Scraping Initialise Historical Stock Prices
 ticker_scraping = PythonOperator(
     task_id = 'ticker_scraping_data',
-    python_callable =  get_stock_price,
+    python_callable = get_stock_price,
     # Need to fix op_kwargs to get the date as required
     op_kwargs = {'start':'2018-01-01', 'end': curr_date, 'df': tickers_df},
     dag = dag
@@ -294,7 +323,7 @@ load_stock_prices = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_stock_prices',
     bucket = 'stock_prediction_is3107',
     source_objects = ['stock_prices.parquet'],
-    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.historical_stock_prices',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_hist_stock_prices',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
@@ -306,7 +335,7 @@ load_interest_rates = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_interest_rate',
     bucket = 'stock_prediction_is3107',
     source_objects = ['interest_rate.parquet'],
-    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.interest_rates',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_interest_rates',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
@@ -318,7 +347,7 @@ load_exchange_rates = GoogleCloudStorageToBigQueryOperator(
     task_id = 'stage_exchange_rate',
     bucket = 'stock_prediction_is3107',
     source_objects = ['exchange_rate.parquet'],
-    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.exchange_rates',
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_exchange_rates',
     write_disposition='WRITE_TRUNCATE',
     autodetect = True,
     source_format = 'PARQUET',
@@ -332,6 +361,13 @@ start_init = BashOperator(
     dag = dag
 )
 
+# Start Initialiastion
+init_db = BashOperator(
+    task_id = 'init_db_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
 # Echo task finish (filler) (for testing dag paths)
 finish_start = BashOperator(
     task_id = 'finish_task',
@@ -339,10 +375,18 @@ finish_start = BashOperator(
     dag = dag
 )
 
+# Echo task finish (filler) (for testing dag paths)
+start_daily = BashOperator(
+    task_id = 'start_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
 ############################
 # Define Tasks Hierarchy   #
 ############################
-start_init >> [ticker_scraping, interest_rate_scraping, exchange_rate_scraping] 
+start_init >> daily_file_check >> choose_best_path >> [start_daily, init_db]
+init_db >> [ticker_scraping, interest_rate_scraping, exchange_rate_scraping] 
 ticker_scraping >> stock_cloud >> load_stock_prices
 interest_rate_scraping >> interest_cloud >> load_interest_rates
 exchange_rate_scraping >> exchange_cloud >> load_exchange_rates
