@@ -8,6 +8,7 @@ from airflow.operators.python import BranchPythonOperator
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from google.cloud import storage
+from pandas_datareader import data as pdr
 
 import json
 import os
@@ -15,6 +16,8 @@ import pandas as pd
 import requests
 import urllib.request
 import yfinance as yf 
+
+yf.pdr_override()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.109 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
@@ -223,6 +226,36 @@ def exchange_rate_scraping(**kwargs):
 
     return df
 
+# Function to scrape gold stock prices
+def gold_scraping(**kwargs):
+    start_date = kwargs['start']
+    end_date = kwargs['end']
+
+    gold = pdr.get_data_yahoo("GC=F", start=start_date, end=end_date)
+    print('Gold Data Obtained')
+
+    return gold
+
+# Function to scrape silver stock prices
+def silver_scraping(**kwargs):
+    start_date = kwargs['start']
+    end_date = kwargs['end']
+
+    silver = pdr.get_data_yahoo("SI=F", start=start_date, end=end_date)
+    print('Silver Data Obtained')
+
+    return silver
+
+# Function to scrape crude oil stock prices
+def crude_oil_scraping(**kwargs):
+    start_date = kwargs['start']
+    end_date = kwargs['end']
+
+    crude_oil = pdr.get_data_yahoo("CL=F", start=start_date, end=end_date)
+    print('Crude Oil Data Obtained')
+
+    return crude_oil
+
 # Push stock data from XCOM to Cloud
 def push_stock_price(**kwargs):
     curr_data = kwargs['task_instance'].xcom_pull(task_ids='ticker_scraping_data')
@@ -240,6 +273,24 @@ def push_exchange_rate(**kwargs):
     curr_data = kwargs['task_instance'].xcom_pull(task_ids='exchange_rate_scraping_data')
     curr_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
     print("Pushing Exchange Rates to Cloud")
+
+# Push gold stock prices from XCOM to Clouds
+def push_gold(**kwargs):
+    curr_data = kwargs['task_instance'].xcom_pull(task_ids='gold_scraping_data')
+    curr_data.to_parquet('gs://stock_prediction_is3107/gold.parquet')
+    print("Pushing Gold Stock Prices to Cloud")
+
+# Push silver stock prices from XCOM to Clouds
+def push_silver(**kwargs):
+    curr_data = kwargs['task_instance'].xcom_pull(task_ids='silver_scraping_data')
+    curr_data.to_parquet('gs://stock_prediction_is3107/silver.parquet')
+    print("Pushing Silver Stock Prices to Cloud")
+
+# Push crude oil stock prices from XCOM to Clouds
+def push_crude_oil(**kwargs):
+    curr_data = kwargs['task_instance'].xcom_pull(task_ids='crude_oil_scraping_data')
+    curr_data.to_parquet('gs://stock_prediction_is3107/crude_oil.parquet')
+    print("Pushing Crude Oil Stock Prices to Cloud")
 
 def finish_init(**kwargs):
     print('Initialisation Done')
@@ -293,6 +344,30 @@ interest_rate_scraping = PythonOperator(
     dag = dag
 )
 
+# Scraping (initialise) gold stock prices
+gold_scraping = PythonOperator(
+    task_id = 'gold_scraping_data',
+    python_callable = gold_scraping,
+    op_kwargs = {'start': '2018-01-02', 'end': curr_date},
+    dag = dag
+)
+
+# Scraping (initialise) silver stock prices
+silver_scraping = PythonOperator(
+    task_id = 'silver_scraping_data',
+    python_callable = silver_scraping,
+    op_kwargs = {'start': '2018-01-02', 'end': curr_date},
+    dag = dag
+)
+
+# Scraping (initialise) crude oil stock prices
+crude_oil_scraping = PythonOperator(
+    task_id = 'crude_oil_scraping_data',
+    python_callable = crude_oil_scraping,
+    op_kwargs = {'start': '2018-01-02', 'end': curr_date},
+    dag = dag
+)
+
 # Push Historical Stock Prices to Cloud
 stock_cloud = PythonOperator(
     task_id = 'push_stock_cloud_data',
@@ -311,6 +386,27 @@ interest_cloud = PythonOperator(
 exchange_cloud = PythonOperator(
     task_id = 'push_exchange_cloud_data',
     python_callable = push_exchange_rate,
+    dag = dag
+)
+
+# Push Gold Stock Prices to Cloud
+gold_cloud = PythonOperator(
+    task_id = 'push_gold_cloud_data',
+    python_callable = push_gold,
+    dag = dag
+)
+
+# Push Silver Stock Prices to Cloud
+silver_cloud = PythonOperator(
+    task_id = 'push_silver_cloud_data',
+    python_callable = push_silver,
+    dag = dag
+)
+
+# Push Crude Oil Prices to Cloud
+oil_cloud = PythonOperator(
+    task_id = 'push_crude_oil_cloud_data',
+    python_callable = push_crude_oil,
     dag = dag
 )
 
@@ -354,6 +450,42 @@ load_exchange_rates = GoogleCloudStorageToBigQueryOperator(
     dag = dag
 )
 
+# Load gold stock prices data from GCS to BQ
+load_gold = GoogleCloudStorageToBigQueryOperator(
+    task_id = 'stage_gold',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['gold.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_gold',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load silver stock prices data from GCS to BQ
+load_silver = GoogleCloudStorageToBigQueryOperator(
+    task_id = 'stage_silver',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['silver.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_silver',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load crude oil stock prices data from GCS to BQ
+load_crude_oil = GoogleCloudStorageToBigQueryOperator(
+    task_id = 'stage_crude_oil',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['crude_oil.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.init_crude_oil',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
 # Start of DAG (to test)
 start_init = BashOperator(
     task_id = 'start_task',
@@ -386,9 +518,12 @@ start_daily = BashOperator(
 # Define Tasks Hierarchy   #
 ############################
 start_init >> daily_file_check >> choose_best_path >> [start_daily, init_db]
-init_db >> [ticker_scraping, interest_rate_scraping, exchange_rate_scraping] 
+init_db >> [ticker_scraping, interest_rate_scraping, exchange_rate_scraping, gold_scraping, silver_scraping, crude_oil_scraping] 
 ticker_scraping >> stock_cloud >> load_stock_prices
 interest_rate_scraping >> interest_cloud >> load_interest_rates
 exchange_rate_scraping >> exchange_cloud >> load_exchange_rates
+gold_scraping >> gold_cloud >> load_gold
+silver_scraping >> silver_cloud >> load_silver
+crude_oil_scraping >> oil_cloud >> load_crude_oil
 
-[load_stock_prices, load_interest_rates, load_exchange_rates] >> finish_start
+[load_stock_prices, load_interest_rates, load_exchange_rates, load_gold, load_silver, load_crude_oil] >> finish_start
