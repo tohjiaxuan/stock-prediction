@@ -622,5 +622,6 @@ crude_oil_scraping >> oil_cloud >> load_crude_oil
 
 ##### TEST FOR CRUDE OIL
 start_init >> crude_oil_file_check >> crude_oil_path >> [init_crude_oil_db, run_crude_oil_daily] 
-init_crude_oil_db >> crude_oil_scraping >> oil_cloud >> load_crude_oil >> finish_start
-run_crude_oil_daily >> crude_oil_updating >> oil_cloud >> load_crude_oil >> finish_start
+init_crude_oil_db >> crude_oil_scraping >> oil_cloud 
+run_crude_oil_daily >> crude_oil_updating >> oil_cloud 
+oil_cloud >> load_crude_oil >> finish_start
