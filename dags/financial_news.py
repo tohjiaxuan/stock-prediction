@@ -491,6 +491,13 @@ def business_times_scraping_data_init(**kwargs):
 #################################
 
 def yahoofinance_scraping_data_daily(**kwargs):
+    vdisplay = Xvfb()
+    vdisplay.start()
+
+    # Chrome driver
+    options = webdriver.ChromeOptions()
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options = options)
+
     # scrape news for each ticker
     start = 'https://sg.finance.yahoo.com/quote/'
     end = '/news'
