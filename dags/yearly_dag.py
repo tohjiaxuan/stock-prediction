@@ -729,10 +729,36 @@ start_pipeline = DummyOperator(
 # (Initialisation - Historical) #
 #################################
 
-scrape_init = DummyOperator(
-    task_id = 'scrape_init',
+scrape_netincome_init = DummyOperator(
+    task_id = 'scrape_netincome_init',
     dag = dag
 )
+
+scrape_assets_init = DummyOperator(
+    task_id = 'scrape_assets_init',
+    dag = dag
+)
+
+scrape_liab_init = DummyOperator(
+    task_id = 'scrape_liab_init',
+    dag = dag
+)
+
+scrape_equity_init = DummyOperator(
+    task_id = 'scrape_equity_init',
+    dag = dag
+)
+
+scrape_div_init = DummyOperator(
+    task_id = 'scrape_div_init',
+    dag = dag
+)
+
+scrape_inflation_init = DummyOperator(
+    task_id = 'scrape_inflation_init',
+    dag = dag
+)
+
 
 end_init = DummyOperator(
     task_id = 'end_init',
@@ -789,8 +815,33 @@ inflation_scraping = PythonOperator(
 # (Yearly)                      #
 #################################
 
-scrape_yearly = DummyOperator(
-    task_id = 'scrape_yearly',
+scrape_netincome_yearly = DummyOperator(
+    task_id = 'scrape_netincome_yearly',
+    dag = dag
+)
+
+scrape_assets_yearly = DummyOperator(
+    task_id = 'scrape_assets_yearly',
+    dag = dag
+)
+
+scrape_liab_yearly = DummyOperator(
+    task_id = 'scrape_liab_yearly',
+    dag = dag
+)
+
+scrape_equity_yearly = DummyOperator(
+    task_id = 'scrape_equity_yearly',
+    dag = dag
+)
+
+scrape_div_yearly = DummyOperator(
+    task_id = 'scrape_div_yearly',
+    dag = dag
+)
+
+scrape_inflation_yearly = DummyOperator(
+    task_id = 'scrape_inflation_yearly',
     dag = dag
 )
 
@@ -1371,49 +1422,117 @@ add_financial_ratios_yearly = BigQueryOperator(
 # Choosing Paths #
 ##################
 
-# Check if files exists in GCS
-def check_files(**kwargs):
+
+# Check if netincome exists in GCS, choose path (init or yearly)
+def check_netincome_choose(**kwargs):
     netincome = 'netincome_init.parquet'
-    assets = 'assets_init.parquet'
-    liability = 'liab_init.parquet'
-    equity =  'equity_init.parquet'
-    dividends =  'div_init.parquet'
-
-    if ((storage.Blob(bucket = bucket, name = netincome).exists(storage_client)) and
-    (storage.Blob(bucket=bucket, name = assets).exists(storage_client)) and 
-    (storage.Blob(bucket=bucket, name = liability).exists(storage_client)) and
-    (storage.Blob(bucket=bucket, name = equity).exists(storage_client)) and
-    (storage.Blob(bucket=bucket, name = dividends).exists(storage_client))):
-        return ("Exists")
+    if (storage.Blob(bucket = bucket, name = netincome).exists(storage_client)):
+        return 'scrape_netincome_yearly'
     else:
-        return ("Initialise")
+        return 'scrape_netincome_init'
 
-# Choose between initialisation and yearly path
-def choose_path(ti):
-    choose = ti.xcom_pull(task_ids='yearly_file_check_task')
-    if choose == 'Exists':
-        return 'scrape_yearly'
-    return 'scrape_init'
+# Check if assets exists in GCS, choose path (init or yearly)
+def check_assets_choose(**kwargs):
+    assets = 'assets_init.parquet'
+    if (storage.Blob(bucket = bucket, name = assets).exists(storage_client)):
+        return 'scrape_assets_yearly'
+    else:
+        return 'scrape_assets_init'
 
-yearly_file_check = PythonOperator(
-    task_id = 'yearly_file_check_task',
-    python_callable = check_files,
-    dag = dag
-)
+# Check if liability exists in GCS, choose path (init or yearly)
+def check_liab_choose(**kwargs):
+    liability = 'liab_init.parquet'
+    if (storage.Blob(bucket = bucket, name = liability).exists(storage_client)):
+        return 'scrape_liab_yearly'
+    else:
+        return 'scrape_liab_init'
 
-choose_best_path = BranchPythonOperator(
-    task_id = 'choose_best_path_task',
-    python_callable = choose_path,
+# Check if equity exists in GCS, choose path (init or yearly)
+def check_equity_choose(**kwargs):
+    equity = 'equity_init.parquet'
+    if (storage.Blob(bucket = bucket, name = equity).exists(storage_client)):
+        return 'scrape_equity_yearly'
+    else:
+        return 'scrape_equity_init'
+
+# Check if dividends exists in GCS, choose path (init or yearly)
+def check_div_choose(**kwargs):
+    dividends =  'div_init.parquet'
+    if (storage.Blob(bucket = bucket, name = dividends).exists(storage_client)):
+        return 'scrape_div_yearly'
+    else:
+        return 'scrape_div_init'
+
+# Check if inflation exists in GCS, choose path (init or yearly)
+def check_inflation_choose(**kwargs):
+    inflation =  'inflation_init.parquet'
+    if (storage.Blob(bucket = bucket, name = inflation).exists(storage_client)):
+        return 'scrape_inflation_yearly'
+    else:
+        return 'scrape_inflation_init'
+
+check_netincome_choose_path = BranchPythonOperator(
+    task_id = 'check_netincome_choose_path',
+    python_callable = check_netincome_choose,
     do_xcom_push = False,
     dag = dag
 )
 
+check_assets_choose_path = BranchPythonOperator(
+    task_id = 'check_assets_choose_path',
+    python_callable = check_assets_choose,
+    do_xcom_push = False,
+    dag = dag
+)
+
+check_liab_choose_path = BranchPythonOperator(
+    task_id = 'check_liab_choose_path',
+    python_callable = check_liab_choose,
+    do_xcom_push = False,
+    dag = dag
+)
+
+check_equity_choose_path = BranchPythonOperator(
+    task_id = 'check_equity_choose_path',
+    python_callable = check_equity_choose,
+    do_xcom_push = False,
+    dag = dag
+)
+
+check_div_choose_path = BranchPythonOperator(
+    task_id = 'check_div_choose_path',
+    python_callable = check_div_choose,
+    do_xcom_push = False,
+    dag = dag
+)
+
+check_inflation_choose_path = BranchPythonOperator(
+    task_id = 'check_inflation_choose_path',
+    python_callable = check_inflation_choose,
+    do_xcom_push = False,
+    dag = dag
+)
+
+
 ############################
 # Define Tasks Hierarchy   #
 ############################
-start_pipeline >> yearly_file_check >> choose_best_path >> [scrape_init, scrape_yearly]
+start_pipeline >> [check_netincome_choose_path, check_assets_choose_path, check_liab_choose_path, check_equity_choose_path, check_div_choose_path, check_inflation_choose_path]
 
-scrape_init >> [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> financials_cloud_init
+check_netincome_choose_path >> [scrape_netincome_init, scrape_netincome_yearly]
+check_assets_choose_path >> [scrape_assets_init, scrape_assets_yearly]
+check_liab_choose_path >> [scrape_liab_init, scrape_liab_yearly]
+check_equity_choose_path >> [scrape_equity_init, scrape_equity_yearly]
+check_div_choose_path >> [scrape_div_init, scrape_div_yearly]
+check_inflation_choose_path >> [scrape_inflation_init, scrape_inflation_yearly]
+
+scrape_netincome_init >> income_scraping
+scrape_assets_init >> assets_scraping
+scrape_liab_init >> liab_scraping
+scrape_equity_init >> equity_scraping
+scrape_div_init >> dividends_scraping
+scrape_inflation_init >> inflation_scraping
+[income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> financials_cloud_init
 financials_cloud_init >> [stage_netincome_init, stage_assets_init, stage_liab_init, stage_equity_init, stage_div_init, stage_inflation_init]
 stage_netincome_init >> reformat_netincome_init
 stage_assets_init >> reformat_assets_init
@@ -1422,7 +1541,13 @@ stage_equity_init >> reformat_equity_init
 stage_div_init >> reformat_div_init
 [reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios >> end_init
 
-scrape_yearly >> [income_scraping_yearly, assets_scraping_yearly, liab_scraping_yearly, equity_scraping_yearly, dividends_scraping_yearly, inflation_scraping_yearly] >> financials_cloud_yearly
+scrape_netincome_yearly >> income_scraping_yearly
+scrape_assets_yearly >> assets_scraping_yearly
+scrape_liab_yearly >> liab_scraping_yearly
+scrape_equity_yearly >> equity_scraping_yearly
+scrape_div_yearly >> dividends_scraping_yearly
+scrape_inflation_yearly >> inflation_scraping_yearly
+[income_scraping_yearly, assets_scraping_yearly, liab_scraping_yearly, equity_scraping_yearly, dividends_scraping_yearly, inflation_scraping_yearly] >> financials_cloud_yearly
 financials_cloud_yearly >> [stage_netincome_yearly, stage_assets_yearly, stage_liab_yearly, stage_equity_yearly, stage_div_yearly, stage_inflation_yearly]
 stage_netincome_yearly >> reformat_netincome_yearly
 stage_assets_yearly >> reformat_assets_yearly
