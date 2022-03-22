@@ -1225,7 +1225,7 @@ add_financial_ratios = BigQueryOperator(
             create table `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
             (
                 ticker string not null,
-                year string not null,
+                year timestamp not null,
                 netincome float64, 
                 assets float64, 
                 liability float64, 
@@ -1237,7 +1237,7 @@ add_financial_ratios = BigQueryOperator(
                 networth float64
             )
             as
-            select ticker, year, netincome, assets, liability, equity, dividends,
+            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
@@ -1362,7 +1362,7 @@ add_financial_ratios_yearly = BigQueryOperator(
             create or replace table `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
             (
                 ticker string not null,
-                year string not null,
+                year timestamp not null,
                 netincome float64, 
                 assets float64, 
                 liability float64, 
@@ -1374,7 +1374,7 @@ add_financial_ratios_yearly = BigQueryOperator(
                 networth float64
             )
             as
-            select ticker, year, netincome, assets, liability, equity, dividends,
+            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
