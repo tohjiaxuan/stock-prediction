@@ -482,11 +482,8 @@ def inflation_scraping_data(**kwargs):
 
 # Function for (1) scraping net income and (2) storing into gcs
 def income_scraping_data_yearly(**kwargs):
-    # to ensure that date is dynamic in a sense that the column name of the dataframe will be the current year, 
-    # this line should be used. 
-    curr_year = str(date.today().year)
-    # however, for demo purposes to show proof of code functionality, 
-    # we are going to mimic the current year as 2021 to show data, hence we minus 1 to make curr_year as 2021: 
+    # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+    # hence, we minus 1 from the current year to obtain the yearly data. 
     curr_year = str(date.today().year - 1)
 
     table_header = ['Ticker', 'Net Income', 'Year'+curr_year]
@@ -523,11 +520,8 @@ def income_scraping_data_yearly(**kwargs):
 
 # Function for (1) scraping assets and (2) storing into gcs
 def assets_scraping_data_yearly(**kwargs):
-    # to ensure that date is dynamic in a sense that the column name of the dataframe will be the current year, 
-    # this line should be used. 
-    curr_year = str(date.today().year)
-    # however, for demo purposes to show proof of code functionality, 
-    # we are going to mimic the current year as 2021 to show data, hence we minus 1 to make curr_year as 2021: 
+    # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+    # hence, we minus 1 from the current year to obtain the yearly data.
     curr_year = str(date.today().year - 1)
 
     table_header_assets = ['Ticker', 'Total Assets', 'Year'+curr_year]
@@ -565,11 +559,8 @@ def assets_scraping_data_yearly(**kwargs):
 
 # Function for (1) scraping liabilities and (2) storing into gcs
 def liab_scraping_data_yearly(**kwargs):
-    # to ensure that date is dynamic in a sense that the column name of the dataframe will be the current year, 
-    # this line should be used. 
-    curr_year = str(date.today().year)
-    # however, for demo purposes to show proof of code functionality, 
-    # we are going to mimic the current year as 2021 to show data, hence we minus 1 to make curr_year as 2021: 
+    # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+    # hence, we minus 1 from the current year to obtain the yearly data.
     curr_year = str(date.today().year - 1)
 
     table_header_liab = ['Ticker', 'Total Liabilities', 'Year'+curr_year]
@@ -606,11 +597,8 @@ def liab_scraping_data_yearly(**kwargs):
 
 # Function for (1) scraping equity and (2) storing into gcs
 def equity_scraping_data_yearly(**kwargs):
-    # to ensure that date is dynamic in a sense that the column name of the dataframe will be the current year, 
-    # this line should be used. 
-    curr_year = str(date.today().year)
-    # however, for demo purposes to show proof of code functionality, 
-    # we are going to mimic the current year as 2021 to show data, hence we minus 1 to make curr_year as 2021: 
+    # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+    # hence, we minus 1 from the current year to obtain the yearly data.
     curr_year = str(date.today().year - 1)
 
     table_header_eq = ['Ticker', 'Total Shareholders Equity', 'Year'+curr_year]
@@ -647,11 +635,8 @@ def equity_scraping_data_yearly(**kwargs):
 
 # Function for (1) scraping dividends and (2) storing into gcs
 def dividends_scraping_data_yearly(**kwargs):
-    # to ensure that date is dynamic in a sense that the column name of the dataframe will be the current year, 
-    # this line should be used. 
-    curr_year = str(date.today().year)
-    # however, for demo purposes to show proof of code functionality, 
-    # we are going to mimic the current year as 2021 to show data, hence we minus 1 to make curr_year as 2021: 
+   # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+    # hence, we minus 1 from the current year to obtain the yearly data.
     curr_year = str(date.today().year - 1)
 
     table_header_div = ['Ticker', 'Total Cash Dividends', 'Year'+curr_year]
@@ -703,8 +688,8 @@ def inflation_scraping_data_yearly(**kwargs):
     yearly = []
     for item in final:
         if len(item) != 0:
-            # Here, we are simulating with 2021 data to show proof of code functionality.
-            # That is why we add a -1 to the current year (i.e. 2022) // 2022 - 1 = 2021
+            # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
+            # hence, we minus 1 from the current year to obtain the yearly data.
             if (item[0] == str(date.today().year - 1)) and (len(item[1]) != 0):
                 yearly.append(item)
     df = pd.DataFrame(yearly, columns=['Year', 'Inflation'])
@@ -1240,7 +1225,7 @@ add_financial_ratios = BigQueryOperator(
             create table `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
             (
                 ticker string not null,
-                year string not null,
+                year timestamp not null,
                 netincome float64, 
                 assets float64, 
                 liability float64, 
@@ -1252,7 +1237,7 @@ add_financial_ratios = BigQueryOperator(
                 networth float64
             )
             as
-            select ticker, year, netincome, assets, liability, equity, dividends,
+            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
@@ -1377,7 +1362,7 @@ add_financial_ratios_yearly = BigQueryOperator(
             create or replace table `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
             (
                 ticker string not null,
-                year string not null,
+                year timestamp not null,
                 netincome float64, 
                 assets float64, 
                 liability float64, 
@@ -1389,7 +1374,7 @@ add_financial_ratios_yearly = BigQueryOperator(
                 networth float64
             )
             as
-            select ticker, year, netincome, assets, liability, equity, dividends,
+            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
