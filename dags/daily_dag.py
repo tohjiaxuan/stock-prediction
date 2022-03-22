@@ -8,11 +8,14 @@ from airflow.operators.python import BranchPythonOperator
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from google.cloud import storage
+from google.cloud import bigquery
 from pandas_datareader import data as pdr
+from google.cloud import bigquery
 
 import json
 import os
 import pandas as pd
+import pandas_ta as ta
 import requests
 import urllib.request
 import yfinance as yf 
@@ -62,25 +65,91 @@ def execute_query_with_hook(query):
     hook = PostgresHook(postgres_conn_id="postgres_local")
     hook.run(query)
 
-# Check if files exists in GCS
-def check_files(**kwargs):
+###############
+# Check Files #
+###############
+
+# Check if hist stock exists in GCS
+def check_stock_prices(**kwargs):
     stock = kwargs['stock']
-    int_rate = kwargs['int_rate']
-    ex_rate = kwargs['ex_rate']
-
-    if ((storage.Blob(bucket = bucket, name = stock).exists(storage_client)) and
-    (storage.Blob(bucket=bucket, name=int_rate).exists(storage_client)) and 
-    (storage.Blob(bucket=bucket, name=ex_rate).exists(storage_client))):
+    if storage.Blob(bucket = bucket, name = stock).exists(storage_client):
         return ("Exists")
-    else:
-        return ("Initialise")
+    return ("Initialise")
 
-# Choose between initialisation and daily path
-def choose_path(**kwargs):
-    choose = kwargs['task_instance'].xcom_pull(task_ids='daily_file_check_task')
+def choose_stock_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='stock_file_check_task')
     if choose == 'Exists':
-        return 'start_daily_task'
-    return 'init_db_task'
+        return 'run_stock_daily_task'
+    return 'ticker_scraping_data'
+
+# Check if exchange rate exists in GCS
+def check_ex_rate(**kwargs):
+    ex_rate = kwargs['ex_rate']
+    if storage.Blob(bucket = bucket, name = ex_rate).exists(storage_client):
+        return ("Exists")
+    return ("Initialise")
+
+def choose_ex_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='ex_file_check_task')
+    if choose == 'Exists':
+        return 'run_ex_daily_task'
+    return 'exchange_rate_scraping_data'
+
+# Check if interest rate exists in GCS
+def check_int_rate(**kwargs):
+    int_rate = kwargs['int_rate']
+    if storage.Blob(bucket = bucket, name = int_rate).exists(storage_client):
+        return ("Exists")
+    return ("Initialise")
+
+def choose_int_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='int_file_check_task')
+    if choose == 'Exists':
+        return 'run_int_daily_task'
+    return 'interest_rate_scraping_data'
+
+# Check if gold exists in GCS
+def check_gold_prices(**kwargs):
+    gold = kwargs['gold']
+    if storage.Blob(bucket = bucket, name = gold).exists(storage_client):
+        return ("Exists")
+    return ("Initialise")
+
+def choose_gold_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='gold_file_check_task')
+    if choose == 'Exists':
+        return 'run_gold_daily_task'
+    return 'gold_scraping_data'
+
+# Check if silver exists in GCS
+def check_silver_prices(**kwargs):
+    silver = kwargs['silver']
+    if storage.Blob(bucket = bucket, name = silver).exists(storage_client):
+        return ("Exists")
+    return ("Initialise")
+
+def choose_silver_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='silver_file_check_task')
+    if choose == 'Exists':
+        return 'run_silver_daily_task'
+    return 'silver_scraping_data'
+
+# Check if crude oil exists in GCS
+def check_crude_oil(**kwargs):
+    oil = kwargs['oil']
+    if storage.Blob(bucket = bucket, name = oil).exists(storage_client):
+        return ("Exists")
+    return ("Initialise")
+
+def choose_crude_oil_path(**kwargs):
+    choose = kwargs['task_instance'].xcom_pull(task_ids='crude_oil_file_check_task')
+    if choose == 'Exists':
+        return 'run_crude_oil_daily_task'
+    return 'crude_oil_scraping_data'
+
+#############
+# Scraping  #
+#############
 
 # Function to obtain yfinance historial prices
 def get_stock_price(**kwargs):
@@ -104,66 +173,6 @@ def get_stock_price(**kwargs):
         stocks.append(curr_df)
     # Concatenate all dfs
     df = pd.concat(stocks)
-    return df
-
-# Function to scrape interest rates
-def interest_rate_scraping(**kwargs):
-    # Reference to oldest date because 2018-01-01 was PH (initialisation)
-    initial_date = kwargs['start']
-    oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
-    
-    # Obtain latest 1000 rows
-    url = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1000&sort=end_of_day%20desc'
-    req = urllib.request.Request(url,None,headers)
-    response = urllib.request.urlopen(req)
-    data = response.read()
-    raw_batch1 = json.loads(data.decode())
-    batch1 = raw_batch1['result']['records']
-    
-    ir_init_batch = batch1.copy()
-    
-    # Check if first batch oldest date == 2018-01-02
-    curr_old = batch1[999]['end_of_day']
-    
-    while(curr_old != initial_date):
-        # Update new end_date and start date
-        new_end = datetime.strptime(curr_old, '%Y-%M-%d') - timedelta(days=1)
-        new_start = new_end - timedelta(days=1000)
-        
-        # If less than 1000 records or just nice 1000 days away, then can just use oldest
-        if new_start <= oldest_datetime_obj:
-            print("Less than 1000 days from initialisation date")
-            date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%M-%d')
-            curr_old = '2018-01-02'
-            
-        else:
-            print("More than 1000 days from initialisation date")
-            date_url = '&between[end_of_day]=' + new_end.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
-        
-        # Get new requests
-        new_url = url + date_url
-        curr_req = urllib.request.Request(new_url,None,headers)
-
-        curr_response = urllib.request.urlopen(curr_req)
-        curr_data = curr_response.read()
-
-        curr_raw_batch = json.loads(curr_data.decode())
-        curr_batch = curr_raw_batch['result']['records']
-        
-        ir_init_batch = ir_init_batch + curr_batch
-        
-        index = len(curr_batch)
-        
-        # Update condition:
-        if curr_old == initial_date:
-            break
-        else:
-            curr_old = curr_batch[index-1]['end_of_day']
-
-    df = pd.DataFrame(ir_init_batch)
-    df = df[df['comp_sora_1m'].notna()]
-
-    print("Interest Rates Obtained")
     return df
 
 # Function to scrape exchange rate
@@ -226,6 +235,66 @@ def exchange_rate_scraping(**kwargs):
 
     return df
 
+# Function to scrape interest rates
+def interest_rate_scraping(**kwargs):
+    # Reference to oldest date because 2018-01-01 was PH (initialisation)
+    initial_date = kwargs['start']
+    oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
+    
+    # Obtain latest 1000 rows
+    url = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1000&sort=end_of_day%20desc'
+    req = urllib.request.Request(url,None,headers)
+    response = urllib.request.urlopen(req)
+    data = response.read()
+    raw_batch1 = json.loads(data.decode())
+    batch1 = raw_batch1['result']['records']
+    
+    ir_init_batch = batch1.copy()
+    
+    # Check if first batch oldest date == 2018-01-02
+    curr_old = batch1[999]['end_of_day']
+    
+    while(curr_old != initial_date):
+        # Update new end_date and start date
+        new_end = datetime.strptime(curr_old, '%Y-%M-%d') - timedelta(days=1)
+        new_start = new_end - timedelta(days=1000)
+        
+        # If less than 1000 records or just nice 1000 days away, then can just use oldest
+        if new_start <= oldest_datetime_obj:
+            print("Less than 1000 days from initialisation date")
+            date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%M-%d')
+            curr_old = '2018-01-02'
+            
+        else:
+            print("More than 1000 days from initialisation date")
+            date_url = '&between[end_of_day]=' + new_end.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
+        
+        # Get new requests
+        new_url = url + date_url
+        curr_req = urllib.request.Request(new_url,None,headers)
+
+        curr_response = urllib.request.urlopen(curr_req)
+        curr_data = curr_response.read()
+
+        curr_raw_batch = json.loads(curr_data.decode())
+        curr_batch = curr_raw_batch['result']['records']
+        
+        ir_init_batch = ir_init_batch + curr_batch
+        
+        index = len(curr_batch)
+        
+        # Update condition:
+        if curr_old == initial_date:
+            break
+        else:
+            curr_old = curr_batch[index-1]['end_of_day']
+
+    df = pd.DataFrame(ir_init_batch)
+    df = df[df['comp_sora_1m'].notna()]
+
+    print("Interest Rates Obtained")
+    return df
+
 # Function to scrape gold stock prices
 def gold_scraping(**kwargs):
     start_date = kwargs['start']
@@ -255,6 +324,10 @@ def crude_oil_scraping(**kwargs):
     print('Crude Oil Data Obtained')
 
     return crude_oil
+
+####################
+# Pushing to Cloud #
+####################
 
 # Push stock data from XCOM to Cloud
 def push_stock_price(**kwargs):
@@ -292,6 +365,29 @@ def push_crude_oil(**kwargs):
     curr_data.to_parquet('gs://stock_prediction_is3107/crude_oil.parquet')
     print("Pushing Crude Oil Stock Prices to Cloud")
 
+###################
+# Transformation  #
+###################
+# Todo: need to edit to take in the normal one... daily
+def sma_prices(**kwargs):
+    bq_client = bigquery.Client()
+    query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_hist_stock_prices`"
+    df = bq_client.query(query).to_dataframe()
+
+    # Check for null values, if present, do ffill
+    if (df.isnull().values.any() == True):
+        df = df.fillna(method='ffill')
+
+    # Calculate GC
+    df["GC"] = df.ta.sma(50, append=True) > df.ta.sma(200, append=True)
+
+    # Calculate DC
+    df["DC"] = df.ta.sma(50, append=True) < df.ta.sma(200, append=True)
+
+    print("Transforming Stocks Data Complete")
+    df.to_parquet('gs://stock_prediction_is3107/final_stock.parquet')
+    return df
+
 def finish_init(**kwargs):
     print('Initialisation Done')
 
@@ -299,22 +395,94 @@ def finish_init(**kwargs):
 ####################
 # Define Operators #
 ####################
+###############
+# Check Paths #
+###############
 # Check if file exists in gcs (can change to dwh - better?)
-daily_file_check = PythonOperator(
-    task_id = 'daily_file_check_task',
-    python_callable = check_files,
-    op_kwargs = {'stock': 'stock_prices.parquet', 
-    'int_rate': 'interest_rate.parquet', 
-    'ex_rate': 'exchange_rate.parquet'},
+stock_file_check = PythonOperator(
+    task_id = 'stock_file_check_task',
+    python_callable = check_stock_prices,
+    op_kwargs = {'stock': 'stock_prices.parquet'},
     dag = dag
 )
 
-choose_best_path = BranchPythonOperator(
-    task_id = 'choose_best_path_task',
-    python_callable = choose_path,
+stock_path = BranchPythonOperator(
+    task_id = 'stock_path_task',
+    python_callable = choose_stock_path,
     do_xcom_push = False,
     dag = dag
 )
+
+ex_file_check = PythonOperator(
+    task_id = 'ex_file_check_task',
+    python_callable = check_ex_rate,
+    op_kwargs = {'ex_rate': 'exchange_rate.parquet'},
+    dag = dag
+)
+
+ex_path = BranchPythonOperator(
+    task_id = 'ex_path_task',
+    python_callable = choose_ex_path,
+    do_xcom_push = False,
+    dag = dag
+)
+
+int_file_check = PythonOperator(
+    task_id = 'int_file_check_task',
+    python_callable = check_int_rate,
+    op_kwargs = {'int_rate': 'interest_rate.parquet'},
+    dag = dag
+)
+
+int_path = BranchPythonOperator(
+    task_id = 'int_path_task',
+    python_callable = choose_int_path,
+    do_xcom_push = False,
+    dag = dag
+)
+
+gold_file_check = PythonOperator(
+    task_id = 'gold_file_check_task',
+    python_callable = check_gold_prices,
+    op_kwargs = {'gold': 'gold.parquet'},
+    dag = dag
+)
+
+gold_path = BranchPythonOperator(
+    task_id = 'gold_path_task',
+    python_callable = choose_gold_path,
+    do_xcom_push = False,
+    dag = dag
+)
+
+silver_file_check = PythonOperator(
+    task_id = 'silver_file_check_task',
+    python_callable = check_silver_prices,
+    op_kwargs = {'silver': 'silver.parquet'},
+    dag = dag
+)
+
+silver_path = BranchPythonOperator(
+    task_id = 'silver_path_task',
+    python_callable = choose_silver_path,
+    do_xcom_push = False,
+    dag = dag
+)
+
+crude_oil_file_check = PythonOperator(
+    task_id = 'crude_oil_file_check_task',
+    python_callable = check_crude_oil,
+    op_kwargs = {'oil': 'crude_oil.parquet'},
+    dag = dag
+)
+
+crude_oil_path = BranchPythonOperator(
+    task_id = 'crude_oil_path_task',
+    python_callable = choose_crude_oil_path,
+    do_xcom_push = False,
+    dag = dag
+)
+
 ##################
 # Extract Stage #
 ##################
@@ -486,16 +654,114 @@ load_crude_oil = GoogleCloudStorageToBigQueryOperator(
     dag = dag
 )
 
-# Start of DAG (to test)
-start_init = BashOperator(
-    task_id = 'start_task',
-    bash_command = 'echo start',
+##################
+# Transformation #
+##################
+# Remove Duplicates exchange rate
+distinct_exchange = BigQueryOperator(
+    task_id = 'distinct_exchange_task',
+    use_legacy_sql = False,
+    sql = f'''
+            create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_exchange_rate` 
+            as select distinct parse_timestamp('%Y-%m-%d', end_of_day) as Date, *
+            except (
+                end_of_day
+            )
+            from `{PROJECT_ID}.{STAGING_DATASET}.init_exchange_rates`
+    ''',
     dag = dag
 )
 
-# Start Initialiastion
-init_db = BashOperator(
-    task_id = 'init_db_task',
+# Reformat and remove duplicates interest rate
+distinct_interest = BigQueryOperator(
+    task_id = 'distinct_interest_task',
+    use_legacy_sql = False,
+    sql = f'''
+    create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_interest_rate` 
+    as select distinct parse_timestamp('%Y-%m-%d', end_of_day) as Date, *
+    except(
+        end_of_day,
+        interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
+        interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate
+    )
+    from `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates`
+    ''',
+    dag = dag
+)
+
+# Remove Duplicates
+distinct_stock_prices = BigQueryOperator(
+    task_id = 'distinct_stock_prices_task',
+    use_legacy_sql = False,
+    sql = f'''
+    create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_hist_stock_prices` 
+    as select distinct *
+    from `{PROJECT_ID}.{STAGING_DATASET}.init_hist_stock_prices`
+    ''',
+    dag = dag
+)
+
+# Add SMA to df
+sma_stock = PythonOperator(
+    task_id = 'sma_stock_task',
+    python_callable = sma_prices,
+    dag = dag
+)
+
+# Load sma data from GCS to BQ
+load_sma = GoogleCloudStorageToBigQueryOperator(
+    task_id = 'stage_sma_task',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['final_stock.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.final_hist_prices',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+###########
+# Loading #
+###########
+create_stocks_data = BigQueryOperator(
+    task_id = 'create_stocks_data',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/F_stock.sql',
+    dag = dag
+)
+
+create_d_exchange = BigQueryOperator(
+    task_id = 'create_d_exchange',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/D_exchange_rate.sql',
+    dag = dag
+)
+
+create_d_interest = BigQueryOperator(
+    task_id = 'create_d_interest',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/D_interest_rate.sql',
+    dag = dag
+)
+
+# Start of DAG (to test)
+start_init = BashOperator(
+    task_id = 'start_task',
     bash_command = 'echo start',
     dag = dag
 )
@@ -504,12 +770,42 @@ init_db = BashOperator(
 finish_start = BashOperator(
     task_id = 'finish_task',
     bash_command = 'echo finish',
+    trigger_rule = 'none_failed_or_skipped',
     dag = dag
 )
 
-# Echo task finish (filler) (for testing dag paths)
-start_daily = BashOperator(
-    task_id = 'start_daily_task',
+run_stock_daily = BashOperator(
+    task_id = 'run_stock_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
+run_ex_daily = BashOperator(
+    task_id = 'run_ex_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
+run_int_daily = BashOperator(
+    task_id = 'run_int_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
+run_gold_daily = BashOperator(
+    task_id = 'run_gold_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
+run_silver_daily = BashOperator(
+    task_id = 'run_silver_daily_task',
+    bash_command = 'echo start',
+    dag = dag
+)
+
+run_crude_oil_daily = BashOperator(
+    task_id = 'run_crude_oil_daily_task',
     bash_command = 'echo start',
     dag = dag
 )
@@ -517,13 +813,21 @@ start_daily = BashOperator(
 ############################
 # Define Tasks Hierarchy   #
 ############################
-start_init >> daily_file_check >> choose_best_path >> [start_daily, init_db]
-init_db >> [ticker_scraping, interest_rate_scraping, exchange_rate_scraping, gold_scraping, silver_scraping, crude_oil_scraping] 
-ticker_scraping >> stock_cloud >> load_stock_prices
-interest_rate_scraping >> interest_cloud >> load_interest_rates
-exchange_rate_scraping >> exchange_cloud >> load_exchange_rates
+start_init >> [stock_file_check, ex_file_check, int_file_check, gold_file_check, silver_file_check, crude_oil_file_check]
+stock_file_check >> stock_path >> [ticker_scraping, run_stock_daily]
+ex_file_check >> ex_path >> [exchange_rate_scraping, run_ex_daily]
+int_file_check >> int_path >> [interest_rate_scraping, run_int_daily]
+gold_file_check >> gold_path >> [gold_scraping, run_gold_daily]
+silver_file_check >> silver_path >> [silver_scraping, run_silver_daily]
+crude_oil_file_check >> crude_oil_path >> [crude_oil_scraping, run_crude_oil_daily]
+
+ticker_scraping >> stock_cloud >> load_stock_prices >> distinct_stock_prices >> sma_stock >> load_sma
+interest_rate_scraping >> interest_cloud >> load_interest_rates >> distinct_interest
+exchange_rate_scraping >> exchange_cloud >> load_exchange_rates >> distinct_exchange
 gold_scraping >> gold_cloud >> load_gold
 silver_scraping >> silver_cloud >> load_silver
 crude_oil_scraping >> oil_cloud >> load_crude_oil
 
-[load_stock_prices, load_interest_rates, load_exchange_rates, load_gold, load_silver, load_crude_oil] >> finish_start
+[load_sma, distinct_interest, distinct_exchange] >> create_stocks_data
+create_stocks_data >> [create_d_exchange, create_d_interest] >> finish_start
+[load_gold, load_silver, load_crude_oil] >> finish_start
