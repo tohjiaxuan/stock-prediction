@@ -1230,14 +1230,14 @@ add_financial_ratios = BigQueryOperator(
                 assets float64, 
                 liability float64, 
                 equity float64, 
-                dividends float64,
+                yearlydividends float64,
                 ROA float64,
                 ROE float64,
                 debttoequity float64,
                 networth float64
             )
             as
-            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
+            select concat(ticker, '.SI') as ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
@@ -1367,14 +1367,14 @@ add_financial_ratios_yearly = BigQueryOperator(
                 assets float64, 
                 liability float64, 
                 equity float64, 
-                dividends float64,
+                yearlydividends float64,
                 ROA float64,
                 ROE float64,
                 debttoequity float64,
                 networth float64
             )
             as
-            select ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
+            select concat(ticker, '.SI') as ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
             (case when netincome is null then null
             when netincome = 0 then 0
             when assets is null then null
@@ -1499,6 +1499,58 @@ check_inflation_choose_path = BranchPythonOperator(
 )
 
 
+## INTO DATAWAREHOUSE
+###########
+# Loading #
+# (INIT)  #
+###########
+create_stocks_data = BigQueryOperator(
+    task_id = 'create_stocks_data',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/F_stock.sql',
+    dag = dag
+)
+
+create_d_financials = BigQueryOperator(
+    task_id = 'create_d_financials',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/D_financials.sql',
+    dag = dag
+)
+
+
+###########
+# Loading #
+# YEARLY  #
+###########
+
+# not sure, to figure out.
+append_F_stock = DummyOperator(
+    task_id = 'append_F_stock',
+    dag = dag
+)
+
+append_D_financials = BigQueryOperator(
+    task_id = 'append_D_financials',
+    use_legacy_sql = False,
+    sql = f'''
+        INSERT `{PROJECT_ID}.{DWH_DATASET}.D_financials` 
+        SELECT DISTINCT * FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly`
+    ''',
+    dag = dag
+)
+
+
 ############################
 # Define Tasks Hierarchy   #
 ############################
@@ -1524,7 +1576,7 @@ stage_assets_init >> reformat_assets_init
 stage_liab_init >> reformat_liab_init
 stage_equity_init >> reformat_equity_init
 stage_div_init >> reformat_div_init
-[reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios >> end_init
+[reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios >> create_stocks_data >> create_d_financials >> end_init
 
 scrape_netincome_yearly >> income_scraping_yearly
 scrape_assets_yearly >> assets_scraping_yearly
@@ -1539,4 +1591,4 @@ stage_assets_yearly >> reformat_assets_yearly
 stage_liab_yearly >> reformat_liab_yearly
 stage_equity_yearly >> reformat_equity_yearly
 stage_div_yearly >> reformat_div_yearly
-[reformat_netincome_yearly, reformat_assets_yearly, reformat_liab_yearly, reformat_equity_yearly, reformat_div_yearly] >> join_financials_yearly >> add_financial_ratios_yearly >> end_yearly
+[reformat_netincome_yearly, reformat_assets_yearly, reformat_liab_yearly, reformat_equity_yearly, reformat_div_yearly] >> join_financials_yearly >> add_financial_ratios_yearly >> append_D_financials >> append_F_stock >> end_yearly
