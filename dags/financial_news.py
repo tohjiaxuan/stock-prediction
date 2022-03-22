@@ -572,6 +572,7 @@ def yahoofinance_scraping_data_daily(**kwargs):
     df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
     df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
     df_final.reset_index(drop=True, inplace = True) 
+    return df_final
 
 
 def sginvestor_scraping_data_daily(**kwargs):
@@ -943,7 +944,7 @@ def check_sginvestor_blog_choose(**kwargs):
 
 # Check if businesstimes exists in GCS, choose path (init or daily)
 def check_businesstimes_choose(**kwargs):
-    businesstimes = 'businesstimes_news_init.parquet'
+    businesstimes = 'business_times_news_init.parquet'
     if (storage.Blob(bucket = bucket, name = businesstimes).exists(storage_client)):
         return 'scrape_businesstimes_daily'
     else:
