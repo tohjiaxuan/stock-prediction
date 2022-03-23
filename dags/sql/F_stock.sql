@@ -13,6 +13,6 @@ LEFT JOIN
 ON
 interest_rate.Date = stocks.Date
 LEFT JOIN 
-`{{ params.project_id }}.{{ params.staging_dataset }}.financials_with_ratios` financials
+`{{ params.project_id }}.{{ params.staging_dataset }}.financials_with_ratios` financials /* update this table name */
 ON 
 financials.ticker = stocks.Stock and EXTRACT(YEAR FROM financials.YEAR) = EXTRACT(YEAR FROM interest_rate.date)

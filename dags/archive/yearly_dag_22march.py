@@ -1265,51 +1265,6 @@ add_financial_ratios = BigQueryOperator(
     dag = dag
 )
 
-# Reformat financials_with_ratios table to format: ID | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
-# Add a unique identifier ID to this table too (i.e. column ID)
-reformat_financial_ratios = BigQueryOperator(
-    task_id = 'reformat_financial_ratios',
-    use_legacy_sql = False,
-    sql = f'''
-            create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
-            SELECT concat(ticker, '-', EXTRACT(YEAR from temp.year), '-', type) as id,
-            ticker, year, type, value from 
-            (select distinct * from
-            (SELECT ticker, year, 'netincome' as type, netincome as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all
-            SELECT ticker, year, 'assets' as type, assets as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all 
-            SELECT ticker, year, 'liability' as type, liability as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all 
-            SELECT ticker, year, 'equity' as type, equity as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all 
-            SELECT ticker, year, 'yearlydividends' as type, yearlydividends as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios`
-            union all 
-            SELECT ticker, year, 'roa' as type, roa as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios`  
-            union all 
-            SELECT ticker, year, 'roe' as type, roe as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all 
-            SELECT ticker, year, 'debttoequity' as type, debttoequity as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
-            union all 
-            SELECT ticker, year, 'networth' as type, networth as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios`)) as temp
-    ''',
-    dag = dag
-)
-
-# Add a unique identifier ID to the inflation_init table (i.e. column ID)
-inflation_init_key = BigQueryOperator(
-    task_id = 'inflation_init_key',
-    use_legacy_sql = False,
-    sql = f'''
-            create table `{PROJECT_ID}.{STAGING_DATASET}.inflation_init_key` as
-            select concat(EXTRACT(YEAR from temp.year), '-inflation') as id, year, inflation
-            from
-            (SELECT parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, inflation FROM `{PROJECT_ID}.{STAGING_DATASET}.inflation_init`) as temp
-
-    ''',
-    dag = dag
-)
-
 ##################
 # Yearly         #
 ##################
@@ -1447,49 +1402,6 @@ add_financial_ratios_yearly = BigQueryOperator(
     dag = dag
 )
 
-# Reformat financials_with_ratios_yearly table to format: ID | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
-reformat_financial_ratios_yearly = BigQueryOperator(
-    task_id = 'reformat_financial_ratios_yearly',
-    use_legacy_sql = False,
-    sql = f'''
-            create or replace table `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios_yearly` as 
-            SELECT concat(ticker, '-', EXTRACT(YEAR from temp.year), '-', type) as id,
-            ticker, year, type, value from 
-            (select distinct * from
-            (SELECT ticker, year, 'netincome' as type, netincome as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all
-            SELECT ticker, year, 'assets' as type, assets as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all 
-            SELECT ticker, year, 'liability' as type, liability as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all 
-            SELECT ticker, year, 'equity' as type, equity as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all 
-            SELECT ticker, year, 'yearlydividends' as type, yearlydividends as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly`
-            union all 
-            SELECT ticker, year, 'roa' as type, roa as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly`  
-            union all 
-            SELECT ticker, year, 'roe' as type, roe as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all 
-            SELECT ticker, year, 'debttoequity' as type, debttoequity as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
-            union all 
-            SELECT ticker, year, 'networth' as type, networth as value FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly`)) as temp
-    ''',
-    dag = dag
-)
-
-# Add a unique identifier ID to the inflation_yearly table (i.e. column ID)
-inflation_yearly_key = BigQueryOperator(
-    task_id = 'inflation_yearly_key',
-    use_legacy_sql = False,
-    sql = f'''
-            create table `{PROJECT_ID}.{STAGING_DATASET}.inflation_yearly_key` as
-            select concat(EXTRACT(YEAR from temp.year), '-inflation') as id, year, inflation
-            from
-            (SELECT parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, inflation FROM `{PROJECT_ID}.{STAGING_DATASET}.inflation_yearly`) as temp
-
-    ''',
-    dag = dag
-)
 
 ##################
 # Choosing Paths #
@@ -1633,7 +1545,7 @@ append_D_financials = BigQueryOperator(
     use_legacy_sql = False,
     sql = f'''
         INSERT `{PROJECT_ID}.{DWH_DATASET}.D_financials` 
-        SELECT DISTINCT * FROM `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios_yearly`
+        SELECT DISTINCT * FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly`
     ''',
     dag = dag
 )
@@ -1664,8 +1576,7 @@ stage_assets_init >> reformat_assets_init
 stage_liab_init >> reformat_liab_init
 stage_equity_init >> reformat_equity_init
 stage_div_init >> reformat_div_init
-stage_inflation_init >> inflation_init_key
-[reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios >> reformat_financial_ratios >> create_stocks_data >> create_d_financials >> end_init
+[reformat_netincome_init, reformat_assets_init, reformat_liab_init, reformat_equity_init, reformat_div_init] >> join_financials >> add_financial_ratios >> create_stocks_data >> create_d_financials >> end_init
 
 scrape_netincome_yearly >> income_scraping_yearly
 scrape_assets_yearly >> assets_scraping_yearly
@@ -1680,5 +1591,4 @@ stage_assets_yearly >> reformat_assets_yearly
 stage_liab_yearly >> reformat_liab_yearly
 stage_equity_yearly >> reformat_equity_yearly
 stage_div_yearly >> reformat_div_yearly
-stage_inflation_yearly >> inflation_yearly_key
-[reformat_netincome_yearly, reformat_assets_yearly, reformat_liab_yearly, reformat_equity_yearly, reformat_div_yearly] >> join_financials_yearly >> add_financial_ratios_yearly >> reformat_financial_ratios_yearly >> append_D_financials >> append_F_stock >> end_yearly
+[reformat_netincome_yearly, reformat_assets_yearly, reformat_liab_yearly, reformat_equity_yearly, reformat_div_yearly] >> join_financials_yearly >> add_financial_ratios_yearly >> append_D_financials >> append_F_stock >> end_yearly
