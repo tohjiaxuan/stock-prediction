@@ -35,7 +35,7 @@ STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 
 def build_extract_taskgroup(dag: DAG) -> TaskGroup:
-    extract_taskgroup = TaskGroup(group_id = 'extract_tg')
+    extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
 
     curr_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -94,7 +94,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def choose_int_path(**kwargs):
         choose = kwargs['task_instance'].xcom_pull(task_ids='int_file_check_task')
         if choose == 'Exists':
-            return 'run_int_daily_task'
+            return 'recent_date_task'
         return 'interest_rate_scraping_data'
 
     # Check if gold exists in GCS
@@ -107,7 +107,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def choose_gold_path(**kwargs):
         choose = kwargs['task_instance'].xcom_pull(task_ids='gold_file_check_task')
         if choose == 'Exists':
-            return 'run_gold_daily_task'
+            return 'recent_date_task'
         return 'gold_scraping_data'
 
     # Check if silver exists in GCS
@@ -120,7 +120,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def choose_silver_path(**kwargs):
         choose = kwargs['task_instance'].xcom_pull(task_ids='silver_file_check_task')
         if choose == 'Exists':
-            return 'run_silver_daily_task'
+            return 'recent_date_task'
         return 'silver_scraping_data'
 
     # Check if crude oil exists in GCS
@@ -133,7 +133,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def choose_crude_oil_path(**kwargs):
         choose = kwargs['task_instance'].xcom_pull(task_ids='crude_oil_file_check_task')
         if choose == 'Exists':
-            return 'run_crude_oil_daily_task'
+            return 'recent_date_task'
         return 'crude_oil_scraping_data'
 
     def get_recent_date(**kwargs):
@@ -209,7 +209,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             else:
                 counter += 1
 
-        # Check if first batch oldest date == 2018-01-02
         curr_old = batch1[999]['end_of_day']
         
         while(curr_old != initial_date):
@@ -257,6 +256,72 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Obtained Daily Exchange Rates (Update)")
         return ex_df
 
+    # Function to scrape interest rate
+    def helper_interest_rate(initial_date):
+        oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
+        
+        # Obtain latest 1000 rows
+        curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1000&sort=end_of_day%20desc'
+        batch1 = helper_retrieval(curr_link, headers)
+        
+        ir_init_batch = batch1.copy()
+
+        counter = 0
+        for record in batch1:
+            if record['end_of_day'] == initial_date:
+                return pd.DataFrame(batch1[0:counter+1])
+            else:
+                counter += 1
+
+        curr_old = batch1[999]['end_of_day']
+        
+        while(curr_old != initial_date):
+            # Update new end_date and start date
+            new_end = datetime.strptime(curr_old, '%Y-%M-%d') - timedelta(days=1)
+            new_start = new_end - timedelta(days=1000)
+            
+            # If less than 1000 records or just nice 1000 days away, then can just use oldest
+            if new_start <= oldest_datetime_obj:
+                print("Less than 1000 days from initialisation date")
+                date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%M-%d')
+                curr_old = '2018-01-02'
+                
+            else:
+                print("More than 1000 days from initialisation date")
+                date_url = '&between[end_of_day]=' + new_end.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
+            
+            # Get new requests
+            new_url = curr_link + date_url
+            curr_batch = helper_retrieval(new_url, headers)
+            ir_init_batch = ir_init_batch + curr_batch
+            
+            index = len(curr_batch)
+            
+            # Update condition:
+            if curr_old == initial_date:
+                break
+            else:
+                curr_old = curr_batch[index-1]['end_of_day']
+
+        df = pd.DataFrame(ir_init_batch)
+        df = df[df['comp_sora_1m'].notna()]
+
+        print("Interest Rates Obtained")
+        return df
+    
+    def initialise_interest_rate(**kwargs):
+        start_date = kwargs['start']
+        int_df = helper_interest_rate(start_date)
+        print("Obtained Initialisation Interest Rates")
+        return int_df
+    
+    def update_interest_rate(**kwargs):
+        pulled_date = kwargs['task_instance'].xcom_pull(task_ids='recent_date_task')
+        start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
+        int_df = helper_interest_rate(start_date)
+        print("Obtained Daily Interest Rates (Update)")
+        return int_df
+
     # Push stock data from XCOM to Cloud
     def push_stock_price(**kwargs):
         scraping_data = kwargs['ti'].xcom_pull(task_ids='stock_scraping_data')
@@ -278,6 +343,17 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         else:
             updating_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
             print("Pushing New Exchange Rates to Cloud")
+    
+    # Push i/r data from XCOM to Clouds
+    def push_interest_rate(**kwargs):
+        scraping_data = kwargs['ti'].xcom_pull(task_ids='interest_rate_scraping_data')
+        updating_data = kwargs['ti'].xcom_pull(task_ids='update_interest_rate_scraping_data')
+        if isinstance(scraping_data, pd.DataFrame):
+            scraping_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
+            print("Pushing Initialisation Interest Rates to Cloud")
+        else:
+            updating_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
+            print("Pushing New Interest Rates to Cloud")
 
     ####################
     # Define Operators #
@@ -314,6 +390,20 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    int_file_check = PythonOperator(
+        task_id = 'int_file_check_task',
+        python_callable = check_int_rate,
+        op_kwargs = {'int_rate': 'interest_rate.parquet'},
+        dag = dag
+    )
+
+    int_path = BranchPythonOperator(
+        task_id = 'int_path_task',
+        python_callable = choose_int_path,
+        do_xcom_push = False,
+        dag = dag
+    )
+
     ##################################
     # Extract Stage (Initialisation) #
     ##################################
@@ -331,6 +421,15 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     exchange_rate_scraping = PythonOperator(
         task_id = 'exchange_rate_scraping_data',
         python_callable = initialise_exchange_rate,
+        op_kwargs = {'start': '2018-01-02'},
+        provide_context = True,
+        dag = dag
+    )
+
+    # Scraping Initialise Daily Interest Rates
+    interest_rate_scraping = PythonOperator(
+        task_id = 'interest_rate_scraping_data',
+        python_callable = initialise_interest_rate,
         op_kwargs = {'start': '2018-01-02'},
         provide_context = True,
         dag = dag
@@ -355,6 +454,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    update_interest_rate_scraping = PythonOperator(
+        task_id = 'update_interest_rate_scraping_data',
+        python_callable = update_interest_rate,
+        op_kwargs = {'end': curr_date, 'df': tickers_df},
+        provide_context = True,
+        dag = dag
+    )    
+
     # Start of DAG (to test)
     start_init = BashOperator(
         task_id = 'start_task',
@@ -365,7 +472,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     recent_date = PythonOperator(
         task_id = 'recent_date_task',
         python_callable = get_recent_date,
-        trigger_rule = 'none_failed_or_skipped',
+        trigger_rule = 'none_failed',
         provide_context = True,
         dag = dag
     )
@@ -392,12 +499,24 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    start_init >> [stock_file_check, ex_file_check]
+    # Push Interest Rates to Cloud
+    interest_cloud = PythonOperator(
+        task_id = 'push_interest_cloud_data',
+        trigger_rule = 'none_failed',
+        python_callable = push_interest_rate,
+        provide_context = True,
+        dag = dag
+    )
+
+    start_init >> [stock_file_check, ex_file_check, int_file_check]
     stock_file_check >> stock_path >> [stock_scraping, recent_date] 
     ex_file_check >> ex_path >> [exchange_rate_scraping, recent_date]
+    int_file_check >> int_path >> [interest_rate_scraping, recent_date]
 
-    recent_date >> [update_stock_scraping, update_exchange_rate_scraping]
+
+    recent_date >> [update_stock_scraping, update_exchange_rate_scraping, update_interest_rate_scraping]
     [stock_scraping, update_stock_scraping] >> stock_cloud
     [exchange_rate_scraping, update_exchange_rate_scraping] >> exchange_cloud
+    [interest_rate_scraping, update_interest_rate_scraping] >> interest_cloud
 
     return extract_taskgroup
