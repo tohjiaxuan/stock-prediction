@@ -1,5 +1,3 @@
-from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOperator
-from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
@@ -10,7 +8,6 @@ from datetime import datetime, timedelta
 from google.cloud import storage
 from google.cloud import bigquery
 from pandas_datareader import data as pdr
-from google.cloud import bigquery
 from airflow.utils.task_group import TaskGroup
 
 import json
@@ -30,9 +27,11 @@ headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleW
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
+bq_client = bigquery.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
 STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
+DWH_DATASET = 'stock_prediction_datawarehouse'
 
 def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
@@ -54,89 +53,20 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         batch = raw_data['result']['records']
         return batch
 
-    ###############
-    # Check Files #
-    ###############
+    #############
+    # Check DWH #
+    #############
+    
+    def if_f_stock_exists():
+        try:
+            metadata = bq_client.dataset(DWH_DATASET)
+            table_ref = metadata.table('F_STOCKS')
+            bq_client.get_table(table_ref)
+            return True
+        except:
+            return False
 
-    # Check if hist stock exists in GCS
-    def check_stock_prices(**kwargs):
-        stock = kwargs['stock']
-        if storage.Blob(bucket = bucket, name = stock).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_stock_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='stock_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'stock_scraping_data'
-
-    # Check if exchange rate exists in GCS
-    def check_ex_rate(**kwargs):
-        ex_rate = kwargs['ex_rate']
-        if storage.Blob(bucket = bucket, name = ex_rate).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_ex_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='ex_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'exchange_rate_scraping_data'
-
-    # Check if interest rate exists in GCS
-    def check_int_rate(**kwargs):
-        int_rate = kwargs['int_rate']
-        if storage.Blob(bucket = bucket, name = int_rate).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_int_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='int_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'interest_rate_scraping_data'
-
-    # Check if gold exists in GCS
-    def check_gold_prices(**kwargs):
-        gold = kwargs['gold']
-        if storage.Blob(bucket = bucket, name = gold).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_gold_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='gold_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'gold_scraping_data'
-
-    # Check if silver exists in GCS
-    def check_silver_prices(**kwargs):
-        silver = kwargs['silver']
-        if storage.Blob(bucket = bucket, name = silver).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_silver_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='silver_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'silver_scraping_data'
-
-    # Check if crude oil exists in GCS
-    def check_crude_oil(**kwargs):
-        oil = kwargs['oil']
-        if storage.Blob(bucket = bucket, name = oil).exists(storage_client):
-            return ("Exists")
-        return ("Initialise")
-
-    def choose_crude_oil_path(**kwargs):
-        choose = kwargs['task_instance'].xcom_pull(task_ids='crude_oil_file_check_task')
-        if choose == 'Exists':
-            return 'recent_date_task'
-        return 'crude_oil_scraping_data'
-
-    def get_recent_date(**kwargs):
+    def get_recent_date():
         bq_client = bigquery.Client()
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`"
         df = bq_client.query(query).to_dataframe()
@@ -149,9 +79,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     ###########################
     # Function to obtain yfinance historial prices
 
-    def helper_stock_price(tickers_df, start_date, end_date):
+    def helper_stock_price(tickers, start_date, end_date):
             
-        sgx = list(tickers_df['New Symbol']) 
+        sgx = list(tickers['New Symbol']) 
         stocks =[]
 
         # Loop to get all historical prices
@@ -174,21 +104,25 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df = pd.concat(stocks)
         return df
 
-    def initialise_stock_price(**kwargs):
-        tickers_df = kwargs['df']
-        start_date = kwargs['start']
-        end_date = kwargs['end']
+    def initialise_stock_price(start_date, end_date):
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
         print("Obtained Initialisation Stock Prices")
         return stock_df
 
-    def update_stock_price(**kwargs):
-        tickers_df = kwargs['df']
-        pulled_date = kwargs['task_instance'].xcom_pull(task_ids='recent_date_task')
+    def update_stock_price(pulled_date, end_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
         end_date = kwargs['end']
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
         print("Obtained Daily Stock Prices (Update)")
+        return stock_df
+    
+    def stock_prices():
+        check_dwh = if_f_stock_exists()
+        if check_dwh:
+            pulled_date = get_recent_date()
+            stock_df = update_stock_price(pulled_date, curr_date)
+        else:
+            stock_df = initialise_stock_price('2018-01-01', curr_date)
         return stock_df
 
     # Function to scrape exchange rate
@@ -243,17 +177,24 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         return df
 
-    def initialise_exchange_rate(**kwargs):
-        start_date = kwargs['start']
+    def initialise_exchange_rate(start_date):
         ex_df = helper_exchange_rate(start_date)
         print("Obtained Initialisation Exchange Rates")
         return ex_df
 
-    def update_exchange_rate(**kwargs):
-        pulled_date = kwargs['task_instance'].xcom_pull(task_ids='recent_date_task')
+    def update_exchange_rate(pulled_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
         ex_df = helper_exchange_rate(start_date)
         print("Obtained Daily Exchange Rates (Update)")
+        return ex_df
+
+    def exchange_rate():
+        check_dwh = if_f_stock_exists()
+        if check_dwh:
+            pulled_date = get_recent_date()
+            ex_df = update_exchange_rate(pulled_date)
+        else:
+            ex_df = initialise_exchange_rate('2018-01-02')
         return ex_df
 
     # Function to scrape interest rate
@@ -309,158 +250,54 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Interest Rates Obtained")
         return df
     
-    def initialise_interest_rate(**kwargs):
-        start_date = kwargs['start']
+    def initialise_interest_rate(start_date):
         int_df = helper_interest_rate(start_date)
         print("Obtained Initialisation Interest Rates")
         return int_df
     
-    def update_interest_rate(**kwargs):
-        pulled_date = kwargs['task_instance'].xcom_pull(task_ids='recent_date_task')
+    def update_interest_rate(pulled_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
         int_df = helper_interest_rate(start_date)
         print("Obtained Daily Interest Rates (Update)")
         return int_df
 
-    # Push stock data from XCOM to Cloud
-    def push_stock_price(**kwargs):
-        scraping_data = kwargs['ti'].xcom_pull(task_ids='stock_scraping_data')
-        updating_data = kwargs['ti'].xcom_pull(task_ids='update_stock_scraping_data')
-        if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet')
-            print("Pushing Historical Stock Prices to Cloud")
+    def interest_rate():
+        check_dwh = if_f_stock_exists()
+        if check_dwh:
+            pulled_date = get_recent_date()
+            int_df = update_interest_rate(pulled_date)
         else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet')
-            print("Pushing New Stock Prices to Cloud")
-
-    # Push e/r data from XCOM to Clouds
-    def push_exchange_rate(**kwargs):
-        scraping_data = kwargs['ti'].xcom_pull(task_ids='exchange_rate_scraping_data')
-        updating_data = kwargs['ti'].xcom_pull(task_ids='update_exchange_rate_scraping_data')
-        if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
-            print("Pushing Initialisation Exchange Rates to Cloud")
-        else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
-            print("Pushing New Exchange Rates to Cloud")
-    
-    # Push i/r data from XCOM to Clouds
-    def push_interest_rate(**kwargs):
-        scraping_data = kwargs['ti'].xcom_pull(task_ids='interest_rate_scraping_data')
-        updating_data = kwargs['ti'].xcom_pull(task_ids='update_interest_rate_scraping_data')
-        if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
-            print("Pushing Initialisation Interest Rates to Cloud")
-        else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
-            print("Pushing New Interest Rates to Cloud")
+            int_df = initialise_interest_rate('2018-01-02')
+        return int_df
 
     ####################
     # Define Operators #
     ####################
-    ###############
-    # Check Paths #
-    ###############
-    # Check if file exists in gcs (can change to dwh - better?)
-    stock_file_check = PythonOperator(
-        task_id = 'stock_file_check_task',
-        python_callable = check_stock_prices,
-        op_kwargs = {'stock': 'stock_prices.parquet'},
-        dag = dag
-    )
 
-    stock_path = BranchPythonOperator(
-        task_id = 'stock_path_task',
-        python_callable = choose_stock_path,
-        do_xcom_push = False,
-        dag = dag
-    )
+    #################
+    # Extract Stage #
+    #################
 
-    ex_file_check = PythonOperator(
-        task_id = 'ex_file_check_task',
-        python_callable = check_ex_rate,
-        op_kwargs = {'ex_rate': 'exchange_rate.parquet'},
-        dag = dag
-    )
-
-    ex_path = BranchPythonOperator(
-        task_id = 'ex_path_task',
-        python_callable = choose_ex_path,
-        do_xcom_push = False,
-        dag = dag
-    )
-
-    int_file_check = PythonOperator(
-        task_id = 'int_file_check_task',
-        python_callable = check_int_rate,
-        op_kwargs = {'int_rate': 'interest_rate.parquet'},
-        dag = dag
-    )
-
-    int_path = BranchPythonOperator(
-        task_id = 'int_path_task',
-        python_callable = choose_int_path,
-        do_xcom_push = False,
-        dag = dag
-    )
-
-    ##################################
-    # Extract Stage (Initialisation) #
-    ##################################
-
-    # Scraping Initialise Historical Stock Prices
+    # Scraping Historical Stock Prices
     stock_scraping = PythonOperator(
         task_id = 'stock_scraping_data',
-        python_callable = initialise_stock_price,
-        op_kwargs = {'start':'2018-01-01', 'end': curr_date, 'df': tickers_df},
-        provide_context = True,
+        python_callable = stock_prices,
         dag = dag
     )
 
-    # Scraping Initialise Daily Exchange Rates
+    # Scraping Daily Exchange Rates
     exchange_rate_scraping = PythonOperator(
         task_id = 'exchange_rate_scraping_data',
-        python_callable = initialise_exchange_rate,
-        op_kwargs = {'start': '2018-01-02'},
-        provide_context = True,
+        python_callable = exchange_rate,
         dag = dag
     )
 
-    # Scraping Initialise Daily Interest Rates
+    # Scraping Daily Interest Rates
     interest_rate_scraping = PythonOperator(
         task_id = 'interest_rate_scraping_data',
-        python_callable = initialise_interest_rate,
-        op_kwargs = {'start': '2018-01-02'},
-        provide_context = True,
+        python_callable = interest_rate,
         dag = dag
     )
-
-    ############################
-    # Extract Stage (Updating) #
-    ############################
-    update_stock_scraping = PythonOperator(
-        task_id = 'update_stock_scraping_data',
-        python_callable = update_stock_price,
-        op_kwargs = {'end': curr_date, 'df': tickers_df},
-        provide_context = True,
-        dag = dag
-    )
-
-    update_exchange_rate_scraping = PythonOperator(
-        task_id = 'update_exchange_rate_scraping_data',
-        python_callable = update_exchange_rate,
-        op_kwargs = {'end': curr_date, 'df': tickers_df},
-        provide_context = True,
-        dag = dag
-    )
-
-    update_interest_rate_scraping = PythonOperator(
-        task_id = 'update_interest_rate_scraping_data',
-        python_callable = update_interest_rate,
-        op_kwargs = {'end': curr_date, 'df': tickers_df},
-        provide_context = True,
-        dag = dag
-    )    
 
     # Start of DAG (to test)
     start_init = BashOperator(
@@ -469,54 +306,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    recent_date = PythonOperator(
-        task_id = 'recent_date_task',
-        python_callable = get_recent_date,
-        trigger_rule = 'none_failed',
-        provide_context = True,
-        dag = dag
-    )
-
-    ####################
-    # Pushing to Cloud #
-    ####################
-
-    # Push Historical Stock Prices to Cloud
-    stock_cloud = PythonOperator(
-        task_id = 'push_stock_cloud_data',
-        trigger_rule = 'none_failed',
-        python_callable = push_stock_price,
-        provide_context = True,
-        dag = dag
-    )
-
-    # Push Exchange Rates to Cloud
-    exchange_cloud = PythonOperator(
-        task_id = 'push_exchange_cloud_data',
-        trigger_rule = 'none_failed',
-        python_callable = push_exchange_rate,
-        provide_context = True,
-        dag = dag
-    )
-
-    # Push Interest Rates to Cloud
-    interest_cloud = PythonOperator(
-        task_id = 'push_interest_cloud_data',
-        trigger_rule = 'none_failed',
-        python_callable = push_interest_rate,
-        provide_context = True,
-        dag = dag
-    )
-
-    start_init >> [stock_file_check, ex_file_check, int_file_check]
-    stock_file_check >> stock_path >> [stock_scraping, recent_date] 
-    ex_file_check >> ex_path >> [exchange_rate_scraping, recent_date]
-    int_file_check >> int_path >> [interest_rate_scraping, recent_date]
-
-
-    recent_date >> [update_stock_scraping, update_exchange_rate_scraping, update_interest_rate_scraping]
-    [stock_scraping, update_stock_scraping] >> stock_cloud
-    [exchange_rate_scraping, update_exchange_rate_scraping] >> exchange_cloud
-    [interest_rate_scraping, update_interest_rate_scraping] >> interest_cloud
+    start_init >> [stock_scraping, exchange_rate_scraping, interest_rate_scraping]
 
     return extract_taskgroup

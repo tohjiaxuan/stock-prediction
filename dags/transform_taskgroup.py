@@ -2,33 +2,25 @@ from airflow.contrib.operators.gcs_to_bq import GoogleCloudStorageToBigQueryOper
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
-from airflow.operators.bash_operator import BashOperator
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.python import BranchPythonOperator
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import storage
+from google.cloud.exceptions import NotFound
 from airflow.utils.task_group import TaskGroup
 
 import json
 import os
 import pandas as pd
 import pandas_ta as ta
-import requests
-import urllib.request
-import yfinance as yf 
-
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.109 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
+bq_client = bigquery.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
 STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
+
 
 def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     transform_taskgroup = TaskGroup(group_id = 'transform_taskgroup')
@@ -36,26 +28,83 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     ############################
     # Define Python Functions  #
     ############################
-
-    # Todo: need to edit to take in the normal one... daily after dwh is up
-    def sma_prices(**kwargs):
+    def if_f_stock_exists():
+        try:
+            metadata = bq_client.dataset(DWH_DATASET)
+            table_ref = metadata.table('F_STOCKS')
+            bq_client.get_table(table_ref)
+            return True
+        except:
+            return False
+    
+    def query_stock_dwh():
         bq_client = bigquery.Client()
-        query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_hist_stock_prices`"
+        query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
+        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
         df = bq_client.query(query).to_dataframe()
 
-        # Check for null values, if present, do ffill
-        if (df.isnull().values.any() == True):
-            df = df.fillna(method='ffill')
-
-        # Calculate GC
-        df["GC"] = df.ta.sma(50, append=True) > df.ta.sma(200, append=True)
-
-        # Calculate DC
-        df["DC"] = df.ta.sma(50, append=True) < df.ta.sma(200, append=True)
-
-        print("Transforming Stocks Data Complete")
-        df.to_parquet('gs://stock_prediction_is3107/final_stock.parquet')
         return df
+
+    def helper_sma_prices(input_df):
+        # Obtain unique values
+        uniq_stocks = input_df['Stock'].unique()
+        
+        sma_stocks = []
+        # Check for null values, if present, do ffill
+        for ticker in uniq_stocks:
+            print("Currently handling", ticker)
+            curr_df = input_df.loc[input_df['Stock'] == ticker]
+
+            # Sort by date
+            curr_df = curr_df.sort_values(by = ['Date'])
+            curr_df = curr_df.reset_index(drop = True)
+
+            # Forward fill values
+            if (curr_df.isnull().values.any() == True):
+                curr_df = curr_df.fillna(method='ffill')
+                    
+            # Conduct TA analysis
+            curr_df['SMA_50'] = ta.sma(curr_df['Close'], length = 50, append=True)
+            curr_df['SMA_200'] = ta.sma(curr_df['Close'], length=200, append=True)
+            curr_df["GC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+            curr_df["DC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+            sma_stocks.append(curr_df)
+        
+        # Transform to df
+        final_df = pd.concat(sma_stocks, ignore_index = True)
+
+        # Add Constant column for fact table later on
+        final_df['Price Category'] = "Stock"
+            
+        print("Transforming Stocks Data Complete")
+        return final_df
+
+    def query_stage_table():
+        query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_hist_stock_prices`"
+        stage_df = bq_client.query(query).to_dataframe()
+
+        return stage_df
+
+    def update_sma():
+        new_df = query_stage_table()
+        old_df = query_stock_dwh()
+
+        df = old_df.append(new_df, ignore_index = True)
+
+        uniq_dates = new_df['Date'].unique()
+        output = helper_sma_prices(df)
+        output = output[output['Date'].isin(uniq_dates)]
+        return output
+
+    def sma_prices():
+        check_dwh = if_f_stock_exists()
+        if check_dwh:
+            result = update_sma()
+        else:
+            temp = query_stage_table()
+            result = helper_sma_prices(temp)
+        print(result)
+        result.to_parquet('gs://stock_prediction_is3107/final_stock.parquet')
         
     ############################
     # Define Airflow Operators #
