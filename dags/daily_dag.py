@@ -4,6 +4,7 @@ from airflow.example_dags.subdags.subdag import subdag
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
+from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
 from airflow.operators.subdag import SubDagOperator
@@ -14,7 +15,9 @@ from google.cloud import bigquery
 from pandas_datareader import data as pdr
 from google.cloud import bigquery
 
+from airflow.utils.task_group import TaskGroup
 from extract_taskgroup import build_extract_taskgroup
+from transform_taskgroup import build_transform_taskgroup
 
 import json
 import os
@@ -57,5 +60,8 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
-    extract_taskgroup = build_extract_taskgroup(dag=dag)
-    extract_taskgroup
+    with TaskGroup("extract", prefix_group_id = False) as section_1:
+        extract_taskgroup = build_extract_taskgroup(dag=dag)
+    with TaskGroup("transform", prefix_group_id = False) as section_2:
+        transform_taskgroup = build_transform_taskgroup(dag=dag)
+    section_1 >> section_2
