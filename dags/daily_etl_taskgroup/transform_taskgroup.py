@@ -104,7 +104,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             temp = query_stage_table()
             result = helper_sma_prices(temp)
         print(result)
-        result.to_parquet('gs://stock_prediction_is3107/final_stock.parquet')
+        result.to_parquet('gs://stock_prediction_is3107/final_stock.parquet', engine='pyarrow', index=False)
         
     ############################
     # Define Airflow Operators #
@@ -139,7 +139,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         as select distinct parse_timestamp('%Y-%m-%d', end_of_day) as Date, 
         concat(temp.end_of_day, '-INR') as INR_ID, *
         except(
-            end_of_day, __index_level_0__, preliminary, timestamp,
+            end_of_day, preliminary, timestamp,
             interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
             interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate
         ),
@@ -156,9 +156,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         sql = f'''
         create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_hist_stock_prices` 
         as select distinct *
-        except(
-            __index_level_0__
-        )
         from `{PROJECT_ID}.{STAGING_DATASET}.init_hist_stock_prices`
         ''',
         dag = dag

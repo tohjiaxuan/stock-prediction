@@ -111,7 +111,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def update_stock_price(pulled_date, end_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
-        end_date = kwargs['end']
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
         print("Obtained Daily Stock Prices (Update)")
         return stock_df
