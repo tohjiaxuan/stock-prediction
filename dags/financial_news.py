@@ -24,6 +24,9 @@ from dateutil.relativedelta import relativedelta
 from bs4 import BeautifulSoup
 import os
 from google.cloud import storage
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.contrib.operators.bigquery_operator import BigQueryOperator
+
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
@@ -96,7 +99,7 @@ def clean_df(df_final):
                 last_update = t # will need to double check
                 print('check', t)
                 
-            last_update = last_update.strftime('%Y/%m/%d') 
+            last_update = last_update.strftime('%Y-%m-%d') 
             cleaned_time.append(last_update)
     df_final['Date'] = cleaned_time   
     df_final.reset_index(drop=True, inplace = True)  
@@ -142,7 +145,7 @@ def clean_date(date):
 def check_date(df):
     current_time = datetime.today()
     limit = current_time + relativedelta(days=-1)
-    limit = limit.strftime('%Y/%m/%d')
+    limit = limit.strftime('%Y-%m-%d')
     df = df[(df['Date'] > limit)]
     df.reset_index(drop=True, inplace = True) 
     return df
@@ -158,8 +161,8 @@ def yahoofinance_scraping_data_init(**kwargs):
     vdisplay.start()
 
     # Chrome driver
-    options = webdriver.ChromeOptions()
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options = options)
+    # options = webdriver.ChromeOptions()
+    driver = webdriver.Chrome(ChromeDriverManager().install())
 
     # scrape news for each ticker
     start = 'https://sg.finance.yahoo.com/quote/'
@@ -238,6 +241,7 @@ def sginvestor_scraping_data_init(**kwargs):
 
     vdisplay = Xvfb()
     vdisplay.start()
+
     driver = webdriver.Chrome(ChromeDriverManager().install())
 
     # Scraping of pages
@@ -469,7 +473,7 @@ def business_times_scraping_data_init(**kwargs):
     driver.quit()
     cleaned_time = [date.strip('\n') for date in news_date]
     cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
-    cleaned_time = [date.strftime('%Y/%m/%d') for date in cleaned_time]
+    cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
 
     # Convert to DataFrame
     cols = ['Title','Date','Link','Source','Comments']
@@ -495,8 +499,8 @@ def yahoofinance_scraping_data_daily(**kwargs):
     vdisplay.start()
 
     # Chrome driver
-    options = webdriver.ChromeOptions()
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options = options)
+    # options = webdriver.ChromeOptions()
+    driver = webdriver.Chrome(ChromeDriverManager().install())
 
     # scrape news for each ticker
     start = 'https://sg.finance.yahoo.com/quote/'
@@ -536,7 +540,7 @@ def yahoofinance_scraping_data_daily(**kwargs):
                 finally: 
                     date = clean_date(date)
                 try: 
-                    date = date.strftime('%Y/%m/%d') 
+                    date = date.strftime('%Y-%m-%d') 
                 # is an ad
                 except AttributeError as e:
                     pass
@@ -544,7 +548,7 @@ def yahoofinance_scraping_data_daily(**kwargs):
                 finally:
                     if date =='':
                         pass
-                    elif date < limit.strftime('%Y/%m/%d'):
+                    elif date < limit.strftime('%Y-%m-%d'):
                         break
 
                     # get links
@@ -646,7 +650,7 @@ def sginvestor_scraping_data_daily(**kwargs):
 
     # Cleaning
     df_final['Date'] = df_final['Date'].apply(clean_date)
-    df_final['Date'] = df_final['Date'].dt.strftime('%Y/%m/%d')
+    df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
     # only scrape latest news
     df_final = check_date(df_final)
     df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
@@ -745,7 +749,7 @@ def sginvestor_blog_scraping_data_daily(**kwargs):
 
     # Cleaning
     df_final['Date'] = df_final['Date'].apply(clean_date)
-    df_final['Date'] = df_final['Date'].dt.strftime('%Y/%m/%d')
+    df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
     df_final = check_date(df_final)
     df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
     df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
@@ -833,7 +837,7 @@ def business_times_scraping_data_daily(**kwargs):
     driver.quit()
     cleaned_time = [date.strip('\n') for date in news_date]
     cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
-    cleaned_time = [date.strftime('%Y/%m/%d') for date in cleaned_time]
+    cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
 
     # Convert to DataFrame
     cols = ['Title','Date','Link','Source','Comments']
@@ -850,8 +854,6 @@ def business_times_scraping_data_daily(**kwargs):
     df.reset_index(drop=True, inplace = True)  
 
     return df
-
-
 
 ############################
 # Push to GCS From XCOMS #
@@ -982,23 +984,11 @@ check_businesstimes_choose_path = BranchPythonOperator(
 # Define Airflow Operators #
 ############################
 
-# # Create table to store financial news
-# create_table_financial_news = PostgresOperator (
-#     task_id = 'create_table_financial_news',
-#     dag = dag, 
-#     postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
-#     sql = '''
-#         CREATE TABLE IF NOT EXISTS financial_news (
-#         id SERIAL PRIMARY KEY,
-#         ticker TEXT NOT NULL,
-#         date DATE,
-#         title TEXT NOT NULL,
-#         link TEXT NOT NULL,
-#         source TEXT,
-#         comments TEXT
-#         );
-#         '''
-#     )
+start_pipeline = DummyOperator(
+    task_id = 'start_pipeline',
+    dag = dag
+)
+
 
 #################################
 # Airflow Operators             #
@@ -1009,6 +999,7 @@ check_businesstimes_choose_path = BranchPythonOperator(
 yahoofinance_scraping_init = PythonOperator(
     task_id = 'yahoofinance_scraping_data_init',
     python_callable = yahoofinance_scraping_data_init,
+    retries = 5,
     dag = dag
 )
 
@@ -1016,6 +1007,7 @@ yahoofinance_scraping_init = PythonOperator(
 sginvestor_scraping_init = PythonOperator(
     task_id = 'sginvestor_scraping_data_init',
     python_callable = sginvestor_scraping_data_init,
+    retries = 5,
     dag = dag
 )
 
@@ -1023,6 +1015,7 @@ sginvestor_scraping_init = PythonOperator(
 sginvestor_blog_scraping_init = PythonOperator(
     task_id = 'sginvestor_blog_scraping_data_init',
     python_callable = sginvestor_blog_scraping_data_init,
+    retries = 5,
     dag = dag
 )
 
@@ -1030,6 +1023,7 @@ sginvestor_blog_scraping_init = PythonOperator(
 business_times_scraping_init = PythonOperator(
     task_id = 'business_times_scraping_data_init',
     python_callable = business_times_scraping_data_init,
+    retries = 5,
     dag = dag
 )
 
@@ -1062,6 +1056,7 @@ scrape_businesstimes_init = DummyOperator(
 yahoofinance_scraping_daily = PythonOperator(
     task_id = 'yahoofinance_scraping_data_daily',
     python_callable = yahoofinance_scraping_data_daily,
+    retries = 5,
     dag = dag
 )
 
@@ -1069,6 +1064,7 @@ yahoofinance_scraping_daily = PythonOperator(
 sginvestor_scraping_daily = PythonOperator(
     task_id = 'sginvestor_scraping_data_daily',
     python_callable = sginvestor_scraping_data_daily,
+    retries = 5,
     dag = dag
 )
 
@@ -1076,6 +1072,7 @@ sginvestor_scraping_daily = PythonOperator(
 sginvestor_blog_scraping_daily = PythonOperator(
     task_id = 'sginvestor_blog_scraping_data_daily',
     python_callable = sginvestor_blog_scraping_data_daily,
+    retries = 5,
     dag = dag
 )
 
@@ -1083,6 +1080,7 @@ sginvestor_blog_scraping_daily = PythonOperator(
 business_times_scraping_daily = PythonOperator(
     task_id = 'business_times_scraping_data_daily',
     python_callable = business_times_scraping_data_daily,
+    retries = 5,
     dag = dag
 )
 
@@ -1173,10 +1171,170 @@ businesstimes_cloud_daily = PythonOperator(
     dag = dag
 )
 
-start_pipeline = DummyOperator(
-    task_id = 'start_pipeline',
+##############
+# Staging    #
+##############
+
+##################
+# Initialisation #
+##################
+
+# Load yahoo finance from GCS to BQ
+stage_yahoofinance_init = GCSToBigQueryOperator(
+    task_id = 'stage_yahoofinance_init',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['yahoofinance_news_init.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.yahoofinance_news_init',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
     dag = dag
 )
+
+# Load sginvestor from GCS to BQ
+stage_sginvestor_init = GCSToBigQueryOperator(
+    task_id = 'stage_sginvestor_init',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['sginvestor_news_init.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.sginvestor_news_init',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load sginvestor blog from GCS to BQ
+stage_sginvestor_blog_init = GCSToBigQueryOperator(
+    task_id = 'stage_sginvestor_blog_init',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['sginvestor_blog_news_init.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.sginvestor_blog_news_init',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load business times from GCS to BQ
+stage_businesstimes_init = GCSToBigQueryOperator(
+    task_id = 'stage_businesstimes_init',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['business_times_news_init.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.business_times_news_init',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+##################
+# Daily          #
+##################
+
+# Load yahoo finance from GCS to BQ
+stage_yahoofinance_daily = GCSToBigQueryOperator(
+    task_id = 'stage_yahoofinance_daily',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['yahoofinance_news_daily.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.yahoofinance_news_daily',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load sginvestor from GCS to BQ
+stage_sginvestor_daily = GCSToBigQueryOperator(
+    task_id = 'stage_sginvestor_daily',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['sginvestor_news_daily.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.sginvestor_news_daily',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load sginvestor blog from GCS to BQ
+stage_sginvestor_blog_daily = GCSToBigQueryOperator(
+    task_id = 'stage_sginvestor_blog_daily',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['sginvestor_blog_news_daily.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.sginvestor_blog_news_daily',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+# Load business times from GCS to BQ
+stage_businesstimes_daily = GCSToBigQueryOperator(
+    task_id = 'stage_businesstimes_daily',
+    bucket = 'stock_prediction_is3107',
+    source_objects = ['business_times_news_daily.parquet'],
+    destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.business_times_news_daily',
+    write_disposition='WRITE_TRUNCATE',
+    autodetect = True,
+    source_format = 'PARQUET',
+    dag = dag
+)
+
+#####################
+# Transformation in #
+# Staging           #
+#####################
+# remove duplicates
+# reformat_yahoofinance_init = BigQueryOperator(
+#     task_id = 'reformat_yahoofinance_init',
+#     use_legacy_sql = False,
+#     sql = f'''
+#     create table `{PROJECT_ID}.{STAGING_DATASET}.reformat_yahoofinance_init` as select * from
+#     (select distinct * from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news_init`)
+#     ''',
+#     dag = dag
+# )
+
+join_financial_news = BigQueryOperator(
+    task_id = 'join_financial_news',
+    use_legacy_sql = False,
+    sql = f'''
+            create or replace table `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news` as 
+            select * from 
+            (select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news_init` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_news_init` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news_init` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.business_times_news_init`
+            ) temp
+    ''',
+    dag = dag
+)
+
+create_F_news = BigQueryOperator(
+    task_id = 'create_F_news',
+    use_legacy_sql = False,
+    params = {
+        'project_id': PROJECT_ID,
+        'staging_dataset': STAGING_DATASET,
+        'dwh_dataset': DWH_DATASET
+    },
+    sql = './sql/F_news.sql',
+    dag = dag
+)
+
+append_F_news = BigQueryOperator(
+    task_id = 'append_F_news',
+    use_legacy_sql = False,
+    sql = f'''
+        INSERT `{PROJECT_ID}.{DWH_DATASET}.F_news` 
+        SELECT DISTINCT * FROM `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news`
+    ''',
+    dag = dag
+)
+
 
 # airflow tasks test dag_id (financial_news_scrape) tasK_id 2022-03-12
 ############################
@@ -1190,12 +1348,14 @@ check_sginvestor_choose_path >> [scrape_sginvestor_init, scrape_sginvestor_daily
 check_sginvestor_blog_choose_path >> [scrape_sginvestor_blog_init, scrape_sginvestor_blog_daily]
 check_businesstimes_choose_path >> [scrape_businesstimes_init, scrape_businesstimes_daily]
 
-scrape_yahoofinance_init >> yahoofinance_scraping_init >> yahoofinance_cloud_init
-scrape_sginvestor_init >> sginvestor_scraping_init >> sginvestor_cloud_init
-scrape_sginvestor_blog_init >> sginvestor_blog_scraping_init >> sginvestor_blog_cloud_init
-scrape_businesstimes_init >> business_times_scraping_init >> businesstimes_cloud_init
+scrape_yahoofinance_init >> yahoofinance_scraping_init >> yahoofinance_cloud_init >> stage_yahoofinance_init
+scrape_sginvestor_init >> sginvestor_scraping_init >> sginvestor_cloud_init >> stage_sginvestor_init
+scrape_sginvestor_blog_init >> sginvestor_blog_scraping_init >> sginvestor_blog_cloud_init >> stage_sginvestor_blog_init
+scrape_businesstimes_init >> business_times_scraping_init >> businesstimes_cloud_init >> stage_businesstimes_init
+[stage_yahoofinance_init, stage_sginvestor_init, stage_sginvestor_blog_init, stage_businesstimes_init] >> join_financial_news >> create_F_news
 
-scrape_yahoofinance_daily >> yahoofinance_scraping_daily >> yahoofinance_cloud_daily
-scrape_sginvestor_daily >> sginvestor_scraping_daily >> sginvestor_cloud_daily
-scrape_sginvestor_blog_daily >> sginvestor_blog_scraping_daily >> sginvestor_blog_cloud_daily
-scrape_businesstimes_daily >> business_times_scraping_daily >> businesstimes_cloud_daily
+scrape_yahoofinance_daily >> yahoofinance_scraping_daily >> yahoofinance_cloud_daily >> stage_yahoofinance_daily
+scrape_sginvestor_daily >> sginvestor_scraping_daily >> sginvestor_cloud_daily >> stage_sginvestor_daily
+scrape_sginvestor_blog_daily >> sginvestor_blog_scraping_daily >> sginvestor_blog_cloud_daily >> stage_sginvestor_blog_daily
+scrape_businesstimes_daily >> business_times_scraping_daily >> businesstimes_cloud_daily >> stage_businesstimes_daily
+[stage_yahoofinance_daily, stage_sginvestor_daily, stage_sginvestor_blog_daily, stage_businesstimes_daily] >> append_F_news
