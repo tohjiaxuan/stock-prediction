@@ -24,10 +24,10 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         scraping_data = kwargs['ti'].xcom_pull(task_ids='stock_scraping_data')
         updating_data = kwargs['ti'].xcom_pull(task_ids='update_stock_scraping_data')
         if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet')
+            scraping_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet', engine='pyarrow', index=False)
             print("Pushing Historical Stock Prices to Cloud")
         else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet')
+            updating_data.to_parquet('gs://stock_prediction_is3107/stock_prices.parquet', engine='pyarrow', index=False)
             print("Pushing New Stock Prices to Cloud")
 
     # Push e/r data from XCOM to Clouds
@@ -35,10 +35,10 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         scraping_data = kwargs['ti'].xcom_pull(task_ids='exchange_rate_scraping_data')
         updating_data = kwargs['ti'].xcom_pull(task_ids='update_exchange_rate_scraping_data')
         if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
+            scraping_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet', engine='pyarrow', index=False)
             print("Pushing Initialisation Exchange Rates to Cloud")
         else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet')
+            updating_data.to_parquet('gs://stock_prediction_is3107/exchange_rate.parquet', engine='pyarrow', index=False)
             print("Pushing New Exchange Rates to Cloud")
     
     # Push i/r data from XCOM to Clouds
@@ -46,10 +46,10 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         scraping_data = kwargs['ti'].xcom_pull(task_ids='interest_rate_scraping_data')
         updating_data = kwargs['ti'].xcom_pull(task_ids='update_interest_rate_scraping_data')
         if isinstance(scraping_data, pd.DataFrame):
-            scraping_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
+            scraping_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet', engine='pyarrow', index=False)
             print("Pushing Initialisation Interest Rates to Cloud")
         else:
-            updating_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet')
+            updating_data.to_parquet('gs://stock_prediction_is3107/interest_rate.parquet', engine='pyarrow', index=False)
             print("Pushing New Interest Rates to Cloud")
     
     ####################

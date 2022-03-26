@@ -18,7 +18,7 @@ from extract_taskgroup import build_extract_taskgroup
 from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
-# from load_taskgroup import build_load_taskgroup
+from load_taskgroup import build_load_taskgroup
 
 import json
 import os
@@ -69,7 +69,7 @@ with DAG(
         stage_taskgroup = build_stage_taskgroup(dag=dag)
     with TaskGroup("transform", prefix_group_id = False) as section_4:
         transform_taskgroup = build_transform_taskgroup(dag=dag)
-    # with TaskGroup("load", prefix_group_id = False) as section_4:
-    #     load_taskgroup = build_load_taskgroup(dag=dag)
+    with TaskGroup("load", prefix_group_id = False) as section_5:
+        load_taskgroup = build_load_taskgroup(dag=dag)
 
-    section_1 >> section_2 >> section_3 >> section_4
+    section_1 >> section_2 >> section_3 >> section_4 >> section_5
