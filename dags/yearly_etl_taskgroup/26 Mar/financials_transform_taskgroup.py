@@ -131,7 +131,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
 
     def if_d_financials_exists(**kwargs):
         client_bq = bigquery.Client(project=PROJECT_ID)
-        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS"
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_financials"
         try:
             table = client_bq.get_table(table_ref)
             if table:
@@ -478,7 +478,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_financial_ratios_yearly',
         use_legacy_sql = False,
         sql = f'''
-                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
+                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios_yearly` as 
                 SELECT concat(ticker, '-', EXTRACT(YEAR from year), '-', type) as id,
                 ticker, year, type, value from 
                 (SELECT distinct ticker, year, type, value
@@ -492,7 +492,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
 
     # Add a unique identifier ID to the inflation_yearly table (i.e. column ID)
     inflation_key = BigQueryOperator(
-        task_id = 'inflation_key',
+        task_id = 'inflation_yearly_key',
         use_legacy_sql = False,
         sql = f'''
                 create or replace table `{PROJECT_ID}.{STAGING_DATASET}.inflation_key` as

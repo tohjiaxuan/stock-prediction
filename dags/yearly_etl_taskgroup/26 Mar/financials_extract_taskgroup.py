@@ -677,9 +677,9 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    prep_gcs = BashOperator(
-        task_id="prep_gcs",
-        bash_command="echo prep_gcs",
+    finish_extract = BashOperator(
+        task_id="finish_extract",
+        bash_command="echo finish_extract",
         trigger_rule="all_done",
         dag=dag
     )
@@ -692,7 +692,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def if_d_financials_exists(**kwargs):
         client_bq = bigquery.Client(project=PROJECT_ID)
-        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS"
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_financials"
         try:
             table = client_bq.get_table(table_ref)
             if table:
@@ -703,7 +703,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def if_d_inflation_exists(**kwargs):
         client_bq = bigquery.Client(project=PROJECT_ID)
-        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_INFLATION"
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_inflation"
         try:
             table = client_bq.get_table(table_ref)
             if table:
@@ -807,12 +807,45 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    ############################
+    # Push to GCS From XCOMS #
+    ############################
+
+
+    # Pull data from XCOMs for financials and push to cloud
+    def push_financials(ti):
+
+        netincome = ti.xcom_pull(task_ids='income_scraping')
+        netincome.to_parquet('gs://stock_prediction_is3107/netincome.parquet')
+
+        assets = ti.xcom_pull(task_ids='assets_scraping')
+        assets.to_parquet('gs://stock_prediction_is3107/assets.parquet')
+
+        liab = ti.xcom_pull(task_ids='liab_scraping')
+        liab.to_parquet('gs://stock_prediction_is3107/liab.parquet')
+
+        eq = ti.xcom_pull(task_ids='equity_scraping')
+        eq.to_parquet('gs://stock_prediction_is3107/equity.parquet')
+
+        div = ti.xcom_pull(task_ids='dividends_scraping')
+        div.to_parquet('gs://stock_prediction_is3107/div.parquet')
+
+        inflation = ti.xcom_pull(task_ids='inflation_scraping')
+        inflation.to_parquet('gs://stock_prediction_is3107/inflation.parquet')
+
+    # Operator to push to cloud
+    financials_cloud = PythonOperator(
+        task_id = 'financials_cloud',
+        python_callable = push_financials,
+        dag = dag
+    )
+
     
     
     # TASK DEPENDENCIES
 
     start_pipeline >> [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping]
-    [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> prep_gcs
+    [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> financials_cloud >> finish_extract
 
     
     return financials_extract_taskgroup

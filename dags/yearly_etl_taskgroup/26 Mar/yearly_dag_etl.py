@@ -22,7 +22,6 @@ from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.utils.task_group import TaskGroup
 
 from financials_extract_taskgroup import build_financials_extract_taskgroup
-from financials_gcs_taskgroup import build_financials_gcs_taskgroup
 from financials_transform_taskgroup import build_financials_transform_taskgroup
 from financials_load_taskgroup import build_financials_load_taskgroup
 
@@ -56,10 +55,8 @@ with DAG(
     with TaskGroup("tg1", prefix_group_id=False) as section_1:
         financials_extract_taskgroup = build_financials_extract_taskgroup(dag=dag)
     with TaskGroup("tg2", prefix_group_id=False) as section_2:
-        financials_gcs_taskgroup = build_financials_gcs_taskgroup(dag=dag)
-    with TaskGroup("tg3", prefix_group_id=False) as section_3:
         financials_transform_taskgroup = build_financials_transform_taskgroup(dag=dag)
-    with TaskGroup("tg4", prefix_group_id=False) as section_4:
+    with TaskGroup("tg3", prefix_group_id=False) as section_3:
         financials_load_taskgroup = build_financials_load_taskgroup(dag=dag)
     
-    section_1 >> section_2 >> section_3 >> section_4
+    section_1 >> section_2 >> section_3
