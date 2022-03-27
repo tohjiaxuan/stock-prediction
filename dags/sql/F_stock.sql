@@ -20,7 +20,6 @@ EXTRACT(YEAR FROM inflation.YEAR) = EXTRACT(YEAR FROM stocks.date)
 LEFT JOIN 
 `{{ params.project_id }}.{{ params.staging_dataset }}.reformat_financials_ratios` financials
 ON 
-financials.ticker = stocks.Stock and EXTRACT(YEAR FROM financials.YEAR) = EXTRACT(YEAR FROM stocks.date)
-where financials.type = 'networth'
+financials.ticker = stocks.Stock and EXTRACT(YEAR FROM financials.YEAR) = EXTRACT(YEAR FROM stocks.date) and financials.type = 'networth'
 
 
