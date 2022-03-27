@@ -52,6 +52,12 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         raw_data = json.loads(data.decode())
         batch = raw_data['result']['records']
         return batch
+    
+    def helper_latest_retrieval(website_link):
+        latest_retrival = helper_retrieval(website_link, headers)
+        latest_mas_date = latest_retrival[0]['end_of_day']
+        latest_mas_date = datetime.strptime(latest_mas_date, '%Y-%M-%d')
+        return latest_mas_date
 
     #############
     # Check DWH #
@@ -176,7 +182,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 
             else:
                 print("More than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=' + new_end.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
+                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
             
             # Get new requests
             new_url = curr_link + date_url
@@ -203,8 +209,21 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def update_exchange_rate(pulled_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
-        ex_df = helper_exchange_rate(start_date)
-        print("Obtained Daily Exchange Rates (Update)")
+        # Check if the most recent date in the data source is >= to the new start_date
+        curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=95932927-c8bc-4e7a-b484-68a66a24edfe&limit=1&sort=end_of_day%20desc'
+        latest_mas_date = helper_latest_retrieval(curr_link)
+        if latest_mas_date >= datetime.strptime(start_date, '%Y-%M-%d'):
+            ex_df = helper_exchange_rate(start_date)
+            print("Obtained Daily Exchange Rates (Update)")
+
+        else:
+            # Create empty dataframe
+            col_names = ['end_of_day', 'eur_sgd', 'gbp_sgd', 'usd_sgd', 'aud_sgd', 'cad_sgd', 'cny_sgd_100',
+            'hkd_sgd_100', 'inr_sgd_100', 'idr_sgd_100', 'jpy_sgd_100', 'krw_sgd_100', 'myr_sgd_100',
+            'twd_sgd_100', 'nzd_sgd', 'php_sgd_100', 'qar_sgd_100', 'sar_sgd_100', 'chf_sgd', 'thb_sgd_100',
+            'aed_sgd_100', 'vnd_sgd_100']
+            ex_df = pd.DataFrame(columns=col_names)
+            print("No new exchange rate data to collect")
         return ex_df
 
     def exchange_rate():
@@ -248,7 +267,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 
             else:
                 print("More than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=' + new_end.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
+                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
             
             # Get new requests
             new_url = curr_link + date_url
@@ -277,8 +296,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     
     def update_interest_rate(pulled_date):
         start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
-        int_df = helper_interest_rate(start_date)
-        print("Obtained Daily Interest Rates (Update)")
+        curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1&sort=end_of_day%20desc'
+        latest_mas_date = helper_latest_retrieval(curr_link)
+        if latest_mas_date >= datetime.strptime(start_date, "%Y-%M-%d"):
+            int_df = helper_interest_rate(start_date)
+            print("Obtained Daily Interest Rates (Update)")
+        else:
+            # Create empty dataframe
+            col_names = ['end_of_day', 'interbank_overnight', 'interbank_1w', 'interbank_1m', 'interbank_2m', ' interbank_3m',
+            'interbank_6m', 'interbank_12m', 'commercial_bills_3m', 'usd_sibor_3m', 'sgs_repo_overnight_rate', 'standing_facility_deposit',
+            'rmb_overnight_rate', 'sora', 'sora_index', 'comp_sora_1m', 'comp_sora_3m', 'comp_sora_6m',
+            'aggregate_volume', 'highest_transaction', 'lowest_transaction', 'calculation_method']
+            int_df = pd.DataFrame(columns=col_names)
         return int_df
 
     def pull_older_interest_rate(pulled_date):
@@ -299,7 +328,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             t_lag_df = pull_older_interest_rate(pulled_date)
             t_df = update_interest_rate(pulled_date)
         else:
-            st_lag_df = pull_older_interest_rate('2018-01-02')
+            t_lag_df = pull_older_interest_rate('2018-01-02')
             t_df = initialise_interest_rate('2018-01-02')
         int_df = t_df.append(t_lag_df, ignore_index = True)
 

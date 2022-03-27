@@ -86,6 +86,23 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         stage_df = bq_client.query(query).to_dataframe()
 
         return stage_df
+    
+    def query_int_stage():
+        bq_client = bigquery.Client()
+        query = """SELECT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_interest_rate`
+        ORDER BY `Date`"""
+        df = bq_client.query(query).to_dataframe()
+        df.rename(columns={'Date':'Actual Date'}, inplace=True)
+
+        return df
+    
+    def query_ex_stage():
+        bq_client = bigquery.Client()
+        query = """SELECT `Date` FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_exchange_rate`
+        ORDER BY `Date`"""
+        df = bq_client.query(query).to_dataframe()
+
+        return df
 
     def update_sma():
         new_df = query_stage_table()
@@ -107,6 +124,21 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             result = helper_sma_prices(temp)
         print(result)
         result.to_parquet('gs://stock_prediction_is3107/final_stock.parquet', engine='pyarrow', index=False)
+    
+    def lag_int():
+        int_df = query_int_stage()
+        ex_df = query_ex_stage()
+
+        # To ensure index is the same
+        int_df = int_df.reset_index(drop=True)
+        ex_df = ex_df.reset_index(drop=True)
+        lag_int = int_df.join(ex_df)
+
+
+        if len(ex_df) == 0:
+            lag_int = df[0:0]
+            
+        lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
     # Define python functions for commodities related items (gold, silver, crude oil)
     def if_d_commodities_exists():
@@ -244,12 +276,31 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Add lag dates to df
+    lag_int = PythonOperator(
+        task_id = 'lag_int_task',
+        python_callable = lag_int,
+        dag = dag
+    )   
+
     # Load sma data from GCS to BQ
     load_sma = GoogleCloudStorageToBigQueryOperator(
         task_id = 'stage_sma_task',
         bucket = 'stock_prediction_is3107',
         source_objects = ['final_stock.parquet'],
         destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.final_hist_prices',
+        write_disposition='WRITE_TRUNCATE',
+        autodetect = True,
+        source_format = 'PARQUET',
+        dag = dag
+    )
+
+    # Load lag interest date data from GCS to BQ
+    load_lag_interest = GoogleCloudStorageToBigQueryOperator(
+        task_id = 'stage_lag_int_task',
+        bucket = 'stock_prediction_is3107',
+        source_objects = ['lag_interest.parquet'],
+        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.final_interest_rate',
         write_disposition='WRITE_TRUNCATE',
         autodetect = True,
         source_format = 'PARQUET',
@@ -280,7 +331,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     ############################
     [distinct_exchange, distinct_interest, distinct_stock_prices] 
     distinct_stock_prices >> sma_stock >> load_sma
-    [distinct_exchange, distinct_interest, load_sma] 
+    distinct_interest >> lag_int >> load_lag_interest
+    [distinct_exchange, load_lag_interest, load_sma] 
     combine_commodities >> load_commodities
 
     return transform_taskgroup
