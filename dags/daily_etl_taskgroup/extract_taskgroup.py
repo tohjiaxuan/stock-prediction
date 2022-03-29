@@ -66,10 +66,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Check DWH for stock prices related items (stock prices, exchange rate, interest rate)
     def if_f_stock_exists():
         try:
-            metadata = bq_client.dataset(DWH_DATASET)
-            table_ref = metadata.table('F_STOCKS')
-            bq_client.get_table(table_ref)
-            return True
+            bq_client = bigquery.Client()
+            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+            df = bq_client.query(query).to_dataframe()
+            df_length = df['f0_'].values[0]
+            if (df_length != 0):
+                return True
+            else:
+                return False
         except:
             return False
 
@@ -143,6 +147,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def stock_prices():
         check_dwh = if_f_stock_exists()
         if check_dwh:
+            print("retrieve stocks")
             pulled_date = get_recent_date()
             stock_df = update_stock_price(pulled_date, curr_date)
         else:
