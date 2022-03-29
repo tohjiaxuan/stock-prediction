@@ -41,7 +41,8 @@ SchemaField('Low', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Close', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Adj_Close', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Volume', 'INTEGER', 'NULLABLE', None, ()),
-SchemaField('Price_Category', 'STRING', 'NULLABLE', None, ())
+SchemaField('Price_Category', 'STRING', 'NULLABLE', None, ()),
+SchemaField('Price_Category_', 'STRING', 'NULLABLE', None, ())
 ]
 
 D_EX_RATE = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
@@ -92,7 +93,7 @@ SchemaField('comp_sora_3m', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('comp_sora_6m', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('highest_transaction', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('lowest_transaction', 'FLOAT', 'NULLABLE', None, ()),
-SchemaField('on_rmb_facility_rate', 'STRING', 'NULLABLE', None, ()),
+SchemaField('on_rmb_facility_rate', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('published_date', 'STRING', 'NULLABLE', None, ()),
 SchemaField('sor_average', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('sora', 'FLOAT', 'NULLABLE', None, ()),
