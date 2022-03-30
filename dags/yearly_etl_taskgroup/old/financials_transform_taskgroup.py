@@ -130,16 +130,14 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
 
 
     def if_d_financials_exists(**kwargs):
+        client_bq = bigquery.Client(project=PROJECT_ID)
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS"
         try:
-            bq_client = bigquery.Client(project=PROJECT_ID)
-            query = 'select COUNT(*) from `stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS`'
-            df = bq_client.query(query).to_dataframe()
-            df_length = df['f0_'].values[0]
-            if (df_length != 0):
+            table = client_bq.get_table(table_ref)
+            if table:
                 return 'yearly_transformation_financials'
-            else:
-                return 'init_transformation_financials'
-        except:
+            
+        except NotFound as error:
             return 'init_transformation_financials'
 
     init_transformation_financials = DummyOperator(
@@ -498,7 +496,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
                 create or replace table `{PROJECT_ID}.{STAGING_DATASET}.inflation_key` as
-                select concat(EXTRACT(YEAR from temp.year), '-inflation') as id, year, CAST(inflation AS FLOAT64) as inflation
+                select concat(EXTRACT(YEAR from temp.year), '-inflation') as id, year, inflation
                 from
                 (SELECT parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, inflation FROM `{PROJECT_ID}.{STAGING_DATASET}.inflation`) as temp
 

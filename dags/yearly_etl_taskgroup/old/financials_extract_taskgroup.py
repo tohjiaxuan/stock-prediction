@@ -691,30 +691,26 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
 
     def if_d_financials_exists(**kwargs):
+        client_bq = bigquery.Client(project=PROJECT_ID)
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS"
         try:
-            bq_client = bigquery.Client(project=PROJECT_ID)
-            query = 'select COUNT(*) from `stockprediction-344203.stock_prediction_datawarehouse.D_FINANCIALS`'
-            df = bq_client.query(query).to_dataframe()
-            df_length = df['f0_'].values[0]
-            if (df_length != 0):
+            table = client_bq.get_table(table_ref)
+            if table:
                 return True
-            else:
-                return False
-        except:
+            
+        except NotFound as error:
             return False
 
-
     def if_d_inflation_exists(**kwargs):
+        client_bq = bigquery.Client(project=PROJECT_ID)
+        table_ref = "stockprediction-344203.stock_prediction_datawarehouse.D_INFLATION"
         try:
-            bq_client = bigquery.Client(project=PROJECT_ID)
-            query = 'select COUNT(*) from `stockprediction-344203.stock_prediction_datawarehouse.D_INFLATION`'
-            df = bq_client.query(query).to_dataframe()
-            df_length = df['f0_'].values[0]
-            if (df_length != 0):
+            table = client_bq.get_table(table_ref)
+            if table:
                 return True
-            else:
-                return False
-        except:
+            
+        except NotFound as error:
+            print('testing')
             return False
 
     def scrape_netincome():

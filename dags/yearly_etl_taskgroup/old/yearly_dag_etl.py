@@ -25,7 +25,6 @@ from financials_extract_taskgroup import build_financials_extract_taskgroup
 from financials_gcs_taskgroup import build_financials_gcs_taskgroup
 from financials_transform_taskgroup import build_financials_transform_taskgroup
 from financials_load_taskgroup import build_financials_load_taskgroup
-from financials_schema_taskgroup import build_financials_schema_taskgroup
 
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -54,8 +53,6 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
-    with TaskGroup("tg0", prefix_group_id=False) as section_0:
-        financials_schema_taskgroup = build_financials_schema_taskgroup(dag=dag)
     with TaskGroup("tg1", prefix_group_id=False) as section_1:
         financials_extract_taskgroup = build_financials_extract_taskgroup(dag=dag)
     with TaskGroup("tg2", prefix_group_id=False) as section_2:
@@ -65,5 +62,4 @@ with DAG(
     with TaskGroup("tg4", prefix_group_id=False) as section_4:
         financials_load_taskgroup = build_financials_load_taskgroup(dag=dag)
     
-    section_0 >> section_1 >> section_2 >> section_3 >> section_4
-    #section_0
+    section_1 >> section_2 >> section_3 >> section_4
