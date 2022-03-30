@@ -88,10 +88,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Check DWH for commodities related items (gold, silver, crude oil)
     def if_d_commodities_exists():
         try:
-            metadata = bq_client.dataset(DWH_DATASET)
-            table_ref = metadata.table('D_COMMODITIES')
-            bq_client.get_table(table_ref)
-            return True
+            bq_client = bigquery.Client()
+            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
+            df = bq_client.query(query).to_dataframe()
+            df_length = df['f0_'].values[0]
+            if (df_length != 0):
+                return True
+            else:
+                return False
         except:
             return False
 
@@ -139,7 +143,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return stock_df
 
     def update_stock_price(pulled_date, end_date):
-        start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
+        start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
         print("Obtained Daily Stock Prices (Update)")
         return stock_df
@@ -157,6 +161,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Function to scrape exchange rate
     def helper_exchange_rate(initial_date):
         oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
+        print(oldest_datetime_obj)
         
         # Obtain latest 1000 rows
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=95932927-c8bc-4e7a-b484-68a66a24edfe&limit=1000&sort=end_of_day%20desc'
@@ -167,8 +172,11 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Check if new date is inside the 1000 records
         counter = 0
         for record in batch1:
+            curr_date = datetime.strptime(record['end_of_day'], '%Y-%M-%d')
             if record['end_of_day'] == initial_date:
                 return pd.DataFrame(batch1[0:counter+1])
+            elif curr_date < oldest_datetime_obj:
+                return pd.DataFrame(batch1[0:counter])
             else:
                 counter += 1
 
@@ -213,11 +221,11 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return ex_df
 
     def update_exchange_rate(pulled_date):
-        start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
+        start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
         # Check if the most recent date in the data source is >= to the new start_date
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=95932927-c8bc-4e7a-b484-68a66a24edfe&limit=1&sort=end_of_day%20desc'
         latest_mas_date = helper_latest_retrieval(curr_link)
-        if latest_mas_date >= datetime.strptime(start_date, '%Y-%M-%d'):
+        if latest_mas_date >= datetime.strptime(start_date, '%Y-%m-%d'):
             ex_df = helper_exchange_rate(start_date)
             print("Obtained Daily Exchange Rates (Update)")
 
@@ -238,6 +246,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             ex_df = update_exchange_rate(pulled_date)
         else:
             ex_df = initialise_exchange_rate('2018-01-02')
+        print(ex_df['end_of_day'])
         return ex_df
 
     # Function to scrape interest rate
@@ -252,8 +261,11 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         counter = 0
         for record in batch1:
+            curr_date = datetime.strptime(record['end_of_day'], '%Y-%M-%d')
             if record['end_of_day'] == initial_date:
                 return pd.DataFrame(batch1[0:counter+1])
+            elif curr_date < oldest_datetime_obj:
+                return pd.DataFrame(batch1[0:counter])
             else:
                 counter += 1
 
@@ -300,10 +312,10 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return int_df
     
     def update_interest_rate(pulled_date):
-        start_date = (datetime.strptime(pulled_date, '%Y-%M-%d') + timedelta(days=1)).strftime('%Y-%M-%d')
+        start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1&sort=end_of_day%20desc'
         latest_mas_date = helper_latest_retrieval(curr_link)
-        if latest_mas_date >= datetime.strptime(start_date, "%Y-%M-%d"):
+        if latest_mas_date >= datetime.strptime(start_date, "%Y-%m-%d"):
             int_df = helper_interest_rate(start_date)
             print("Obtained Daily Interest Rates (Update)")
         else:
@@ -317,13 +329,17 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def pull_older_interest_rate(pulled_date):
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1000&sort=end_of_day%20desc'
-        new_start = datetime.strptime(pulled_date, '%Y-%M-%d') - timedelta(days=7)
-        new_end = datetime.strptime(pulled_date, '%Y-%M-%d') - timedelta(days=1)
-        date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
+        new_start = datetime.strptime(pulled_date, '%Y-%m-%d') - timedelta(days=7)
+        new_end = datetime.strptime(pulled_date, '%Y-%m-%d')
+        print("Pulled date: ", pulled_date)
+        print("Pull oldest:", new_end)
+        print("Lag start: ", new_start)
+        date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%m-%d') + ','+ new_end.strftime('%Y-%m-%d')
         new_url = curr_link + date_url
         new_batch = helper_retrieval(new_url, headers)
         df = pd.DataFrame(new_batch)
         df = df.head(1)
+        print(df)
         return df
         
     def interest_rate():
@@ -336,7 +352,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             t_lag_df = pull_older_interest_rate('2018-01-02')
             t_df = initialise_interest_rate('2018-01-02')
         int_df = t_df.append(t_lag_df, ignore_index = True)
-
+        print(int_df['end_of_day'])
         return int_df
 
     # Function to scrape gold prices

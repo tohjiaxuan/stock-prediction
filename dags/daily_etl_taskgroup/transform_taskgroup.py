@@ -136,12 +136,11 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         # To ensure index is the same
         int_df = int_df.reset_index(drop=True)
         ex_df = ex_df.reset_index(drop=True)
-        lag_int = int_df.join(ex_df)
-
-
-        if len(ex_df) == 0:
-            lag_int = df[0:0]
-            
+        
+        if (len(ex_df) < len(int_df)):
+            int_df = int_df.iloc[1:]
+        
+        lag_int = int_df.join(ex_df)         
         lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
     # Define python functions for commodities related items (gold, silver, crude oil)
