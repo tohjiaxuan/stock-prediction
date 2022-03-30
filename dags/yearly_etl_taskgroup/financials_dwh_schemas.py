@@ -41,8 +41,7 @@ SchemaField('Low', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Close', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Adj_Close', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Volume', 'INTEGER', 'NULLABLE', None, ()),
-SchemaField('Price_Category', 'STRING', 'NULLABLE', None, ()),
-SchemaField('Price_Category_', 'STRING', 'NULLABLE', None, ())
+SchemaField('Price_Category', 'STRING', 'NULLABLE', None, ())
 ]
 
 D_EX_RATE = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
