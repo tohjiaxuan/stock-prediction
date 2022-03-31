@@ -14,6 +14,7 @@ from google.cloud import storage
 from pandas_datareader import data as pdr
 
 from airflow.utils.task_group import TaskGroup
+from financials_schema_taskgroup import build_financials_schema_taskgroup
 from extract_taskgroup import build_extract_taskgroup
 from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
@@ -61,6 +62,8 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
+    with TaskGroup("tg0", prefix_group_id = False) as section_0:
+        financials_schema_taskgroup = build_financials_schema_taskgroup(dag=dag)
     with TaskGroup("extract", prefix_group_id = False) as section_1:
         extract_taskgroup = build_extract_taskgroup(dag=dag)
     with TaskGroup("gcs", prefix_group_id = False) as section_2:
@@ -72,4 +75,4 @@ with DAG(
     with TaskGroup("load", prefix_group_id = False) as section_5:
         load_taskgroup = build_load_taskgroup(dag=dag)
 
-    section_1 >> section_2 >> section_3 >> section_4 >> section_5
+    section_0 >> section_1 >> section_2 >> section_3 >> section_4 >> section_5
