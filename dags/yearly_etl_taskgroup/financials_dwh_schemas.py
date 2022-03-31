@@ -84,6 +84,7 @@ SchemaField('inflation', 'FLOAT', 'NULLABLE', None, ())
 ]
 
 D_INT_RATE = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
+SchemaField('Actual_Date', 'TIMESTAMP', 'NULLABLE', None, ()),
 SchemaField('INR_ID', 'STRING', 'NULLABLE', None, ()),
 SchemaField('aggregate_volume', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('calculation_method', 'STRING', 'NULLABLE', None, ()),
