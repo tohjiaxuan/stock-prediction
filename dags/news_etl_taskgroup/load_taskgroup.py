@@ -1,5 +1,6 @@
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.operators.dummy_operator import DummyOperator
+from airflow.operators.bash_operator import BashOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.providers.google.cloud.operators.bigquery import BigQueryExecuteQueryOperator
@@ -69,7 +70,7 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
             "query": {
                 "query": INSERT_ROWS_QUERY,
                 "useLegacySql": False
-        }
+            }
         }
     )
 
@@ -89,14 +90,16 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
     #     dag = dag
     # )
 
-    end_loading = DummyOperator(
-        task_id = 'end_loading',
-        dag = dag
-    )
-
     start_loading = DummyOperator(
         task_id = 'start_loading',
         dag = dag
+    )
+
+    end_loading = BashOperator(
+        task_id="end_loading",
+        bash_command="echo end_loading",
+        trigger_rule="all_done",
+        dag=dag
     )
 
     start_loading >> f_news_table >> insert_f_news >> end_loading

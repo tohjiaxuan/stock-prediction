@@ -29,33 +29,21 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     ############################
     # Define Python Functions  #
     ############################
-    def if_f_news_exists():
-        try:
-            metadata = bq_client.dataset(DWH_DATASET)
-            table_ref = metadata.table('F_news')
-            bq_client.get_table(table_ref)
-            return True
-        except:
-            return False
-    
-    # def query_stock_dwh():
-    #     bq_client = bigquery.Client()
-    #     query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
-    #     FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
-    #     df = bq_client.query(query).to_dataframe()
-
-    #     return df
 
     join_financial_news = BigQueryOperator(
     task_id = 'join_financial_news',
     use_legacy_sql = False,
     sql = f'''
             create or replace table `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news` as 
-            select * from 
+            select distinct * from 
             (select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_news` union distinct
             select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
-                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news`
+                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.businesstimes_news` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news` 
             ) temp
     ''',
     dag = dag
@@ -74,8 +62,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     )
 
 
-
-        
     ############################
     # Define Airflow Operators #
     ############################

@@ -9,7 +9,7 @@ from google.cloud import storage
 from google.cloud import bigquery
 from airflow.utils.task_group import TaskGroup
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, InvalidArgumentException, WebDriverException, NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -38,7 +38,7 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
 
-    curr_date = datetime.today().strftime('%Y-%m-%d')
+    # curr_date = datetime.today().strftime('%Y-%m-%d')
 
     # Load tickers that will be used
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
@@ -123,22 +123,19 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 date = current_time + relativedelta(years=-date)
         return date
 
-    # Function to scrape news that > limit (ytd) -> today 
-    # should call latest date from dwh
-    def check_date(df):
-        current_time = datetime.today()
-        limit = current_time + relativedelta(days=-1)
-        limit = limit.strftime('%Y-%m-%d')
-        df = df[(df['Date'] > limit)]
+    # Function to scrape news that > latest date from dwh
+    def check_date(df, pulled_date):
+        df = df[(df['Date'] > pulled_date)]
         df.reset_index(drop=True, inplace = True) 
         return df
+
     #################################
     # Functions for Scrape          #
     # (Initialisation - Historical) #
     #################################
 
     # Function to scrape yahoo finance news (initialise)
-    def yahoofinance_scraping_data_init(**kwargs):
+    def yahoofinance_scraping_data_init():
         vdisplay = Xvfb()
         vdisplay.start()
 
@@ -209,7 +206,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return df_final
 
     # Function to scrape sg investor news (initialise)
-    def sginvestor_scraping_data_init(**kwargs):
+    def sginvestor_scraping_data_init():
         # Obtain page URLs (only 8 pages)
         page_url_list = ['https://sginvestors.io/news/publishers/latest/'] # 1st page
         for i in range(2,9): # for 8 pages
@@ -286,7 +283,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return df_final
 
     # Function to scrape sg investor blog news (initialise)
-    def sginvestor_blog_scraping_data_init(**kwargs):
+    def sginvestor_blog_scraping_data_init():
         # Obtain page URLs
         page_url_list = ['https://research.sginvestors.io/p/bloggers-say.html'] # 1st page
         for i in range(2,7): # for 6 pages
@@ -382,7 +379,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return df_final      
 
     # Function to scrape business times news (initialise)
-    def businesstimes_scraping_data_init(**kwargs):
+    def businesstimes_scraping_data_init():
 
         vdisplay = Xvfb()
         vdisplay.start()
@@ -483,7 +480,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # (Daily)                       #
     #################################
 
-    def yahoofinance_scraping_data_daily(**kwargs):
+    def yahoofinance_scraping_data_daily(pulled_date):
         vdisplay = Xvfb()
         vdisplay.start()
 
@@ -538,7 +535,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                     finally:
                         if date =='':
                             pass
-                        elif date < limit.strftime('%Y-%m-%d'):
+                        elif date < pulled_date.strftime('%Y-%m-%d'):
                             break
 
                         # get links
@@ -569,7 +566,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return df_final
 
 
-    def sginvestor_scraping_data_daily(**kwargs):
+    def sginvestor_scraping_data_daily(pulled_date):
         # Obtain page URLs (only 8 pages)
         page_url_list = ['https://sginvestors.io/news/publishers/latest/'] # 1st page
         for i in range(2,9): # for 8 pages
@@ -645,13 +642,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final['Date'] = df_final['Date'].apply(clean_date)
         df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
         # only scrape latest news
-        df_final = check_date(df_final)
+        df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
 
         return df_final
 
-    def sginvestor_blog_scraping_data_daily(**kwargs):
+    def sginvestor_blog_scraping_data_daily(pulled_date):
         # Obtain page URLs
         page_url_list = ['https://research.sginvestors.io/p/bloggers-say.html'] # 1st page
         for i in range(2,7): # for 6 pages
@@ -746,14 +743,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Cleaning
         df_final['Date'] = df_final['Date'].apply(clean_date)
         df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
-        df_final = check_date(df_final)
+        df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
 
         return df_final
 
     # Function to scrape business times news 
-    def businesstimes_scraping_data_daily(**kwargs):
+    def businesstimes_scraping_data_daily(pulled_date):
 
         vdisplay = Xvfb()
         vdisplay.start()
@@ -846,7 +843,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         df['Title'] = df['Title'].astype(str).str.replace("'", "")
         df['Title'] = df['Title'].astype(str).str.replace('"', '')
-        df = check_date(df)
+        df = check_date(df, pulled_date)
         df.reset_index(drop=True, inplace = True)  
 
         return df
@@ -854,67 +851,85 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     #############
     # Check DWH #
     #############
-    
+
     def if_f_news_exists():
         try:
-            metadata = bq_client.dataset(DWH_DATASET)
-            table_ref = metadata.table('F_news')
-            bq_client.get_table(table_ref)
-            return True
+            bq_client = bigquery.Client()
+            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_NEWS`'
+            df = bq_client.query(query).to_dataframe()
+            df_length = df['f0_'].values[0]
+            if (df_length != 0):
+                return True
+            else:
+                return False
         except:
             return False
 
-    # def get_recent_date():
-    #     bq_client = bigquery.Client()
-    #     query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`"
-    #     df = bq_client.query(query).to_dataframe()
-    #     recent_date = df['f0_'].values[0]
-    #     string_date = np.datetime_as_string(recent_date, unit='D')
-    #     return string_date
+    def get_recent_date():
+        bq_client = bigquery.Client()
+        query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_NEWS`"
+        df = bq_client.query(query).to_dataframe()
+        recent_date = df['f0_'].values[0]
+        # string_date = '2022-03-25'
+        string_date = recent_date.strftime('%Y-%m-%d')
+        print('string_date', string_date)
+        return string_date
 
-    # def scrape_yahoofinance():
-    #     check_dwh = if_f_news_exists()
-    #     if check_dwh:
-    #         yahoofinance_df = yahoofinance_scraping_data_daily()
-    #     else: 
-    #         yahoofinance_df = yahoofinance_scraping_data_init()
-    #     return yahoofinance_df
+    def scrape_yahoofinance():
+        check_dwh = if_f_news_exists()
+        if check_dwh:
+            pulled_date = get_recent_date()
+            yahoofinance_df = yahoofinance_scraping_data_daily(pulled_date)
+            print("Scrape yahoofinance daily")
+        else: 
+            yahoofinance_df = yahoofinance_scraping_data_init()
+            print("Scrape yahoofinance init")
+        return yahoofinance_df
 
     def scrape_sginvestor():
         check_dwh = if_f_news_exists()
         if check_dwh:
-            sginvestor_df = sginvestor_scraping_data_daily()
+            pulled_date = get_recent_date()
+            sginvestor_df = sginvestor_scraping_data_daily(pulled_date)
+            print("Scrape sginvestor daily")
         else: 
             sginvestor_df = sginvestor_scraping_data_init()
+            print("Scrape sginvestor init")
         return sginvestor_df
 
     
     def scrape_sginvestor_blog():
         check_dwh = if_f_news_exists()
         if check_dwh:
-            sginvestor_blog_df = sginvestor_blog_scraping_data_daily()
+            pulled_date = get_recent_date()
+            sginvestor_blog_df = sginvestor_blog_scraping_data_daily(pulled_date)
+            print("Scrape sginvestor blog daily")
         else: 
             sginvestor_blog_df = sginvestor_blog_scraping_data_init()
+            print("Scrape sginvestor blog init")
         return sginvestor_blog_df
 
-    # def scrape_businesstimes():
-    #     check_dwh = if_f_news_exists()
-    #     if check_dwh:
-    #         businesstimes_df = businesstimes_scraping_data_daily()
-    #     else: 
-    #         businesstimes_df = businesstimes_scraping_data_init()
-    #     return businesstimes_df
+    def scrape_businesstimes():
+        check_dwh = if_f_news_exists()
+        if check_dwh:
+            pulled_date = get_recent_date()
+            businesstimes_df = businesstimes_scraping_data_daily(pulled_date)
+            print("Scrape business times daily")
+        else: 
+            businesstimes_df = businesstimes_scraping_data_init()
+            print("Scrape business times init")
+        return businesstimes_df
 
     ########################
     # Airflow Operators    #
     ########################
 
-    # # Scraping yahoo finance news 
-    # yahoofinance_scraping = PythonOperator(
-    #     task_id = 'yahoofinance_scraping',
-    #     python_callable = scrape_yahoofinance,
-    #     dag = dag
-    # )
+    # Scraping yahoo finance news 
+    yahoofinance_scraping = PythonOperator(
+        task_id = 'yahoofinance_scraping',
+        python_callable = scrape_yahoofinance,
+        dag = dag
+    )
 
     # Scraping sg investor news 
     sginvestor_scraping = PythonOperator(
@@ -923,19 +938,19 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Scraping sg investor news 
+    # Scraping sg investor blog news 
     sginvestor_blog_scraping = PythonOperator(
         task_id = 'sginvestor_blog_scraping',
         python_callable = scrape_sginvestor_blog,
         dag = dag
     )
 
-    # # Scraping business times news 
-    # businesstimes_scraping = PythonOperator(
-    #     task_id = 'businesstimes_scraping',
-    #     python_callable = scrape_businesstimes,
-    #     dag = dag
-    # )
+    # Scraping business times news 
+    businesstimes_scraping = PythonOperator(
+        task_id = 'businesstimes_scraping',
+        python_callable = scrape_businesstimes,
+        dag = dag
+    )
 
 
     # Start of DAG (to test)
@@ -954,7 +969,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # TASK DEPENDENCIES
 
-    start_pipeline >> [sginvestor_scraping, sginvestor_blog_scraping]
-    [sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
-
+    start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping, businesstimes_scraping] >> prep_gcs
+# [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping, businesstimes_scraping]
     return extract_taskgroup

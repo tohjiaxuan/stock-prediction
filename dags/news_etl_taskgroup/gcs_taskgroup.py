@@ -17,16 +17,11 @@ PROJECT_ID = 'stockprediction-344203'
 def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     gcs_taskgroup = TaskGroup(group_id = 'gcs_taskgroup')
 
-    # # Push yahoo finance news from XCOM to Cloud
-    # def push_yahoofinance_news(ti):
-    #     scraping_data = ti.xcom_pull(task_ids='yahoofinance_scraping_data_init')
-    #     updating_data = ti.xcom_pull(task_ids='yahoofinance_scraping_data_daily')
-    #     if isinstance(scraping_data, pd.DataFrame):
-    #         scraping_data.to_parquet('gs://stock_prediction_is3107/yahoofinance_news.parquet', index = False)
-    #         print("Pushing Yahoo Finance Init to Cloud")
-    #     else: 
-    #         updating_data.to_parquet('gs://stock_prediction_is3107/yahoofinance_news.parquet', index = False)
-    #         print("Pushing Yahoo Finance Update to Cloud")
+    # Push yahoo finance news from XCOM to Cloud
+    def push_yahoofinance_news(ti):
+        scraping_data = ti.xcom_pull(task_ids='yahoofinance_scraping')
+        scraping_data.to_parquet('gs://stock_prediction_is3107/yahoofinance_news.parquet', index = False)
+        print("Pushing yahoofinance to Cloud")
 
     # Push sg investor news from XCOM to Cloud
     def push_sginvestor_news(ti):
@@ -41,32 +36,24 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         scraping_data.to_parquet('gs://stock_prediction_is3107/sginvestor_blog_news.parquet', index = False)
         print("Pushing sginvestor blog to Cloud")
 
-
-    # # Push business times news from XCOM to Cloud
-    # def push_businesstimes_news(ti):
-    #     scraping_data = ti.xcom_pull(task_ids='businesstimes_scraping_data_init')
-    #     updating_data = ti.xcom_pull(task_ids='businesstimes_scraping_data_daily')
-    #     print(scraping_data)
-    #     print(updating_data)
-    #     if isinstance(scraping_data, pd.DataFrame):
-    #         scraping_data.to_parquet('gs://stock_prediction_is3107/businesstimes_news.parquet', index = False)
-    #         print("Pushing business times Init to Cloud")
-    #     else: 
-    #         updating_data.to_parquet('gs://stock_prediction_is3107/businesstimes_news.parquet', index = False)
-    #         print("Pushing business times Update to Cloud")
+    # Push business times news from XCOM to Cloud
+    def push_businesstimes_news(ti):
+        scraping_data = ti.xcom_pull(task_ids='businesstimes_scraping')
+        scraping_data.to_parquet('gs://stock_prediction_is3107/businesstimes_news.parquet', index = False)
+        print("Pushing business times to Cloud")
 
     ####################
     # Pushing to Cloud #
     ####################
 
-    # # Push Yahoo Finance to Cloud
-    # yahoofinance_cloud = PythonOperator(
-    #     task_id = 'yahoofinance_cloud',
-    #     trigger_rule = 'none_failed',
-    #     python_callable = push_yahoofinance_news,
-    #     provide_context = True,
-    #     dag = dag
-    # )
+    # Push Yahoo Finance to Cloud
+    yahoofinance_cloud = PythonOperator(
+        task_id = 'yahoofinance_cloud',
+        trigger_rule = 'none_failed',
+        python_callable = push_yahoofinance_news,
+        provide_context = True,
+        dag = dag
+    )
 
     # Push Sginvestor to Cloud
     sginvestor_cloud = PythonOperator(
@@ -85,14 +72,14 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # # Push Businesstimes to Cloud
-    # businesstimes_cloud = PythonOperator(
-    #     task_id = 'businesstimes_cloud',
-    #     trigger_rule = 'none_failed',
-    #     python_callable = push_businesstimes_news,
-    #     provide_context = True,
-    #     dag = dag
-    # )
+    # Push Businesstimes to Cloud
+    businesstimes_cloud = PythonOperator(
+        task_id = 'businesstimes_cloud',
+        trigger_rule = 'none_failed',
+        python_callable = push_businesstimes_news,
+        provide_context = True,
+        dag = dag
+    )
 
     start_gcs = DummyOperator(
         task_id = 'start_gcs',
@@ -104,6 +91,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    start_gcs >> [sginvestor_cloud, sginvestor_blog_cloud] >> loaded_gcs
-
+    start_gcs >> [yahoofinance_cloud, sginvestor_cloud, sginvestor_blog_cloud, businesstimes_cloud] >> loaded_gcs
+# [yahoofinance_cloud, sginvestor_cloud, sginvestor_blog_cloud, businesstimes_cloud]
     return gcs_taskgroup
