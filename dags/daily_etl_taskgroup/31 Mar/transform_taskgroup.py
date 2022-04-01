@@ -206,12 +206,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         return final_df
 
     def update_commodities(new_df):
-        commodities_temp = []
         old_df = query_commodities_dwh()
-        old_df.rename({'Price_Category': 'Price Category'}, axis=1, inplace=True)
-        commodities_temp.append(old_df)
-        commodities_temp.append(new_df)
-        updated_df = pd.concat(commodities_temp, ignore_index = True)
+        updated_df = old_df.append(new_df, ignore_index = True)
         updated_df.drop_duplicates(inplace=True)
         return updated_df
 

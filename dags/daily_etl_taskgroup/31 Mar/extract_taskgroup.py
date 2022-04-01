@@ -56,7 +56,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def helper_latest_retrieval(website_link):
         latest_retrival = helper_retrieval(website_link, headers)
         latest_mas_date = latest_retrival[0]['end_of_day']
-        latest_mas_date = datetime.strptime(latest_mas_date, '%Y-%m-%d')
+        latest_mas_date = datetime.strptime(latest_mas_date, '%Y-%M-%d')
         return latest_mas_date
 
     #############
@@ -99,7 +99,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         except:
             return False
 
-    def get_recent_commodities_date():
+    def get_recent_commodities_date(): # to edit
         bq_client = bigquery.Client()
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`"
         df = bq_client.query(query).to_dataframe()
@@ -133,16 +133,8 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             curr_df = curr_df.reset_index()
             curr_df['Stock'] = ticker
             stocks.append(curr_df)
-        
-        if len(stocks) == 0:
-            # Create empty dataframe
-            col_names = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
-            'Stock_Splits', 'Stock']
-            df = pd.DataFrame(columns=col_names)
-            print("No new stock price data to collect")
-        else:   
-            # Concatenate all dfs
-            df = pd.concat(stocks)
+        # Concatenate all dfs
+        df = pd.concat(stocks)
         return df
 
     def initialise_stock_price(start_date, end_date):
@@ -168,7 +160,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function to scrape exchange rate
     def helper_exchange_rate(initial_date):
-        oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%m-%d')
+        oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
         print(oldest_datetime_obj)
         
         # Obtain latest 1000 rows
@@ -180,7 +172,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Check if new date is inside the 1000 records
         counter = 0
         for record in batch1:
-            curr_date = datetime.strptime(record['end_of_day'], '%Y-%m-%d')
+            curr_date = datetime.strptime(record['end_of_day'], '%Y-%M-%d')
             if record['end_of_day'] == initial_date:
                 return pd.DataFrame(batch1[0:counter+1])
             elif curr_date < oldest_datetime_obj:
@@ -192,18 +184,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         
         while(curr_old != initial_date):
             # Update new end_date and start date
-            new_end = datetime.strptime(curr_old, '%Y-%m-%d') - timedelta(days=1)
+            new_end = datetime.strptime(curr_old, '%Y-%M-%d') - timedelta(days=1)
             new_start = new_end - timedelta(days=1000)
             
             # If less than 1000 records or just nice 1000 days away, then can just use oldest
             if new_start <= oldest_datetime_obj:
                 print("Less than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%m-%d')
+                date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%M-%d')
                 curr_old = '2018-01-02'
                 
             else:
                 print("More than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%m-%d') + ','+ new_end.strftime('%Y-%m-%d')
+                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
             
             # Get new requests
             new_url = curr_link + date_url
@@ -233,7 +225,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Check if the most recent date in the data source is >= to the new start_date
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=95932927-c8bc-4e7a-b484-68a66a24edfe&limit=1&sort=end_of_day%20desc'
         latest_mas_date = helper_latest_retrieval(curr_link)
-        print('Latest MAS Date:',latest_mas_date)
         if latest_mas_date >= datetime.strptime(start_date, '%Y-%m-%d'):
             ex_df = helper_exchange_rate(start_date)
             print("Obtained Daily Exchange Rates (Update)")
@@ -260,7 +251,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function to scrape interest rate
     def helper_interest_rate(initial_date):
-        oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%m-%d')
+        oldest_datetime_obj = datetime.strptime(initial_date, '%Y-%M-%d')
         
         # Obtain latest 1000 rows
         curr_link = 'https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=9a0bf149-308c-4bd2-832d-76c8e6cb47ed&limit=1000&sort=end_of_day%20desc'
@@ -270,7 +261,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         counter = 0
         for record in batch1:
-            curr_date = datetime.strptime(record['end_of_day'], '%Y-%m-%d')
+            curr_date = datetime.strptime(record['end_of_day'], '%Y-%M-%d')
             if record['end_of_day'] == initial_date:
                 return pd.DataFrame(batch1[0:counter+1])
             elif curr_date < oldest_datetime_obj:
@@ -282,18 +273,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         
         while(curr_old != initial_date):
             # Update new end_date and start date
-            new_end = datetime.strptime(curr_old, '%Y-%m-%d') - timedelta(days=1)
+            new_end = datetime.strptime(curr_old, '%Y-%M-%d') - timedelta(days=1)
             new_start = new_end - timedelta(days=1000)
             
             # If less than 1000 records or just nice 1000 days away, then can just use oldest
             if new_start <= oldest_datetime_obj:
                 print("Less than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%m-%d')
+                date_url = '&between[end_of_day]=2018-01-01,'+ new_end.strftime('%Y-%M-%d')
                 curr_old = '2018-01-02'
                 
             else:
                 print("More than 1000 days from initialisation date")
-                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%m-%d') + ','+ new_end.strftime('%Y-%m-%d')
+                date_url = '&between[end_of_day]=' + new_start.strftime('%Y-%M-%d') + ','+ new_end.strftime('%Y-%M-%d')
             
             # Get new requests
             new_url = curr_link + date_url
@@ -371,8 +362,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Obtained Gold Prices")
         return gold_df
 
-    def update_gold_prices(pulled_date, curr_date):
-        gold_df = pdr.get_data_yahoo("GC=F", start=pulled_date, end=curr_date)
+    def update_gold_prices(pulled_date):
+        yest_date = (datetime.strptime(pulled_date, '%Y-%M-%d') - timedelta(days=1)).strftime('%Y-%M-%d')
+        gold_df = pdr.get_data_yahoo("GC=F", start=yest_date, end=pulled_date)
         gold_df = gold_df.reset_index() # so 'Date' becomes a column
         print("Obtained Daily Gold Prices (Update)")
         return gold_df
@@ -381,7 +373,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         check_dwh = if_d_commodities_exists()
         if check_dwh:
             pulled_date = get_recent_commodities_date()
-            gold_df = update_gold_prices(pulled_date, curr_date)
+            gold_df = update_gold_prices(pulled_date)
         else:
             gold_df = initialise_gold_prices('2018-01-02', curr_date)
         return gold_df
@@ -393,8 +385,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Obtained Silver Prices")
         return silver_df
 
-    def update_silver_prices(pulled_date, curr_date):
-        silver_df = pdr.get_data_yahoo("SI=F", start=pulled_date, end=curr_date)
+    def update_silver_prices(pulled_date):
+        yest_date = (datetime.strptime(pulled_date, '%Y-%M-%d') - timedelta(days=1)).strftime('%Y-%M-%d')
+        silver_df = pdr.get_data_yahoo("SI=F", start=yest_date, end=pulled_date)
         silver_df = silver_df.reset_index() # so 'Date' becomes a column
         print("Obtained Daily Silver Prices (Update)")
         return silver_df
@@ -403,7 +396,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         check_dwh = if_d_commodities_exists()
         if check_dwh:
             pulled_date = get_recent_commodities_date()
-            silver_df = update_silver_prices(pulled_date, curr_date)
+            silver_df = update_silver_prices(pulled_date)
         else:
             silver_df = initialise_silver_prices('2018-01-02', curr_date)
         return silver_df
@@ -415,9 +408,10 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Obtained Crude Oil Prices")
         return crude_oil_df
 
-    def update_crude_oil_prices(pulled_date, curr_date):
-        crude_oil_df = pdr.get_data_yahoo("CL=F", start=pulled_date, end=curr_date)
-        crude_oil_df = crude_oil_df.reset_index() # so 'Date' becomes a column  
+    def update_crude_oil_prices(pulled_date):
+        yest_date = (datetime.strptime(pulled_date, '%Y-%M-%d') - timedelta(days=1)).strftime('%Y-%M-%d')
+        crude_oil_df = pdr.get_data_yahoo("CL=F", start=yest_date, end=pulled_date)
+        crude_oil_df = crude_oil_df.reset_index() # so 'Date' becomes a column
         print("Obtained Daily Crude Oil Prices (Update)")
         return crude_oil_df
 
@@ -425,7 +419,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         check_dwh = if_d_commodities_exists()
         if check_dwh:
             pulled_date = get_recent_commodities_date()
-            crude_oil_df = update_crude_oil_prices(pulled_date, curr_date)
+            crude_oil_df = update_crude_oil_prices(pulled_date)
         else:
             crude_oil_df = initialise_crude_oil_prices('2018-01-02', curr_date)
         return crude_oil_df
