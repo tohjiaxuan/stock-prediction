@@ -33,22 +33,22 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
     #     except:
     #         return False
 
-    # Only create table if does not exist
-    f_news_table = BigQueryCreateEmptyTableOperator(
-        task_id='f_news_table',
-        dataset_id= DWH_DATASET,
-        table_id= TABLE_ID,
-        project_id= PROJECT_ID,
-        schema_fields=[
-            {"name": "Ticker", "type": "STRING", "mode": "REQUIRED"},
-            {"name": "Title", "type": "STRING", "mode": "NULLABLE"},
-            {"name": "Date", "type": "DATE", "mode": "NULLABLE"},
-            {"name": "Link", "type": "STRING", "mode": "NULLABLE"},
-            {"name": "Source", "type": "STRING", "mode": "NULLABLE"},
-            {"name": "Comments", "type": "STRING", "mode": "NULLABLE"}
-        ],
-        dag = dag
-    )
+    # # Only create table if does not exist
+    # f_news_table = BigQueryCreateEmptyTableOperator(
+    #     task_id='f_news_table',
+    #     dataset_id= DWH_DATASET,
+    #     table_id= TABLE_ID,
+    #     project_id= PROJECT_ID,
+    #     schema_fields=[
+    #         {"name": "Ticker", "type": "STRING", "mode": "REQUIRED"},
+    #         {"name": "Title", "type": "STRING", "mode": "NULLABLE"},
+    #         {"name": "Date", "type": "DATE", "mode": "NULLABLE"},
+    #         {"name": "Link", "type": "STRING", "mode": "NULLABLE"},
+    #         {"name": "Source", "type": "STRING", "mode": "NULLABLE"},
+    #         {"name": "Comments", "type": "STRING", "mode": "NULLABLE"}
+    #     ],
+    #     dag = dag
+    # )
 
     # check_f_news_exists = BigQueryTableExistenceSensor(
     #     task_id="check_f_news",
@@ -102,6 +102,6 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-    start_loading >> f_news_table >> insert_f_news >> end_loading
+    start_loading >> insert_f_news >> end_loading
 
     return load_taskgroup

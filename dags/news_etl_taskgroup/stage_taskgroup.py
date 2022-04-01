@@ -55,17 +55,17 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Load business times from GCS to BQ
-    stage_businesstimes = GCSToBigQueryOperator(
-        task_id = 'stage_businesstimes',
-        bucket = 'stock_prediction_is3107',
-        source_objects = ['businesstimes_news.parquet'],
-        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.businesstimes_news',
-        write_disposition='WRITE_TRUNCATE',
-        autodetect = True,
-        source_format = 'PARQUET',
-        dag = dag
-    )
+    # # Load business times from GCS to BQ
+    # stage_businesstimes = GCSToBigQueryOperator(
+    #     task_id = 'stage_businesstimes',
+    #     bucket = 'stock_prediction_is3107',
+    #     source_objects = ['businesstimes_news.parquet'],
+    #     destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.businesstimes_news',
+    #     write_disposition='WRITE_TRUNCATE',
+    #     autodetect = True,
+    #     source_format = 'PARQUET',
+    #     dag = dag
+    # )
 
     start_staging = DummyOperator(
         task_id = 'start_staging',
@@ -79,6 +79,6 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-    start_staging >> [stage_yahoofinance, stage_sginvestor, stage_sginvestor_blog, stage_businesstimes] >> end_staging
+    start_staging >> [stage_yahoofinance, stage_sginvestor, stage_sginvestor_blog] >> end_staging
 # [stage_yahoofinance, stage_sginvestor, stage_sginvestor_blog, stage_businesstimes]
     return stage_taskgroup

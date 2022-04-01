@@ -41,8 +41,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` union distinct
             select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
-                from `{PROJECT_ID}.{STAGING_DATASET}.businesstimes_news` union distinct
-            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news` 
             ) temp
     ''',

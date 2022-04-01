@@ -38,8 +38,6 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
 
-    # curr_date = datetime.today().strftime('%Y-%m-%d')
-
     # Load tickers that will be used
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
 
@@ -131,7 +129,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     #################################
     # Functions for Scrape          #
-    # (Initialisation - Historical) #
     #################################
 
     # Function to scrape yahoo finance news (initialise)
@@ -205,281 +202,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         return df_final
 
-    # Function to scrape sg investor news (initialise)
-    def sginvestor_scraping_data_init():
-        # Obtain page URLs (only 8 pages)
-        page_url_list = ['https://sginvestors.io/news/publishers/latest/'] # 1st page
-        for i in range(2,9): # for 8 pages
-            page_url_list.append('https://sginvestors.io/news/publishers/latest/0' + str(i))
-
-        # Initialisations
-        news_source = []
-        news_header = []
-        updated_sg_time = []
-        url = []
-        num_pages = 1
-
-        vdisplay = Xvfb()
-        vdisplay.start()
-
-        # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
-
-        # Scraping of pages
-        for page_url in page_url_list[:]:
-            driver.get(page_url)
-            page_soup = BeautifulSoup(driver.page_source,"html.parser")
-            print('Page Number: ', num_pages)
-            print('Page URL: ', page_url)
-            
-            # news_source
-            for source in page_soup.findAll('img',{'class':'newschannelimg'}):
-                source_link = source['src']
-                news_source.append(source_link)
-            
-            # news header / title
-            for header in page_soup.findAll('div',{'class':'newstitle'}):
-                news_header.append(header.text)
-                
-            # updated sg time
-            for time in page_soup.findAll('div',{'class':'updatedsgtime'}):
-                updated_sg_time.append(time.text)
-            
-            # url
-            link_container = page_soup.find('div',{'id':'articlelist'})
-            for news_url in link_container.findAll('a',{'rel':'nofollow'}):
-                href = news_url.get('href')
-                url.append(href)
-            
-            num_pages += 1
-            print('---------')
-        print('---Scraping done!!---')
-        driver.quit()
-
-        # Clean up Source information
-        cleaned_source = []
-        for src in news_source:
-            if 'cna' in src:
-                cleaned_source.append('CNA')
-            elif 'theedgegroup' in src:
-                cleaned_source.append('The Edge')
-            elif 'business-times' in src:
-                cleaned_source.append('The Business Times')
-            else:
-                cleaned_source.append(src) # will need to double check
-
-        # Convert to DataFrame
-        cols = ['Title','Date','Link','Source','Comments']
-        df_final = pd.DataFrame({'Title': news_header,
-                        'Date': updated_sg_time,
-                        'Link': url,
-                        'Source': cleaned_source,
-                        'Comments': 'Featured on SGInvestors'}, columns=cols)
-        df_final.insert(0, 'Ticker', 'None (General News)')
-        df_final = clean_df(df_final)
-
-        return df_final
-
-    # Function to scrape sg investor blog news (initialise)
-    def sginvestor_blog_scraping_data_init():
-        # Obtain page URLs
-        page_url_list = ['https://research.sginvestors.io/p/bloggers-say.html'] # 1st page
-        for i in range(2,7): # for 6 pages
-            page_url_list.append('https://research.sginvestors.io/p/bloggers-say-' + str(i) + '.html')
-
-        # Initialisations
-        source = []
-        author = []
-        title = []
-        description = []
-        updated_sg_time = []
-        url = []
-        num_pages = 1
-
-        vdisplay = Xvfb()
-        vdisplay.start()
-        # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
-
-        # Scraping of pages
-        for page_url in page_url_list[:]:
-            driver.get(page_url)
-            page_soup = BeautifulSoup(driver.page_source,"html.parser")
-            print('Page Number: ', num_pages)
-            print('Page URL: ', page_url)
-            
-            # source
-            for src in page_soup.findAll('div',{'class':'blogtitle'}):
-                src_span = src.find('span')
-                source.append(src_span.text)
-                
-            # author
-            for auth in page_soup.findAll('div',{'class':'authorname'}):
-                author.append(auth.text)
-            
-            # title
-            for ttl in page_soup.findAll('div',{'class':'title'}):
-                title.append(ttl.text)
-                
-            # description - only Latest Articles have this
-            if num_pages == 1:
-                for i in range(10):                 # 5 Best Rated Articles and 5 Most Popular Articles
-                    description.append('')
-                    
-                for desc in page_soup.findAll('div',{'class':'description'}): # Latest Articles on Page 1
-                    description.append(desc.text)
-                    
-            else:                                   # Latest Articles from Page 2
-                for desc in page_soup.findAll('div',{'class':'description'}):
-                    description.append(desc.text)
-            
-            # updated sg time - only Latest Articles have this
-            if num_pages == 1:
-                for i in range(10):                 # 5 Best Rated Articles and 5 Most Popular Articles
-                    updated_sg_time.append('')
-                    
-                for time in page_soup.findAll('div',{'class':'updatedsgtime'}): # Latest Articles on Page 1
-                    updated_sg_time.append(time.text)
-                    
-            else:                                   # Latest Articles from Page 2
-                for time in page_soup.findAll('div',{'class':'updatedsgtime'}):
-                    updated_sg_time.append(time.text)
-            
-            # url
-            for url_item in page_soup.findAll('article',{'class':'bloggeritem'}):
-                all_link_lst = url_item.get('onclick')
-                link_lst = all_link_lst[3:-2].split(',')
-                http_lst = [string for string in link_lst if 'http' in string]
-                http = [string.replace('"', '') for string in http_lst]
-                http_clean = [string.replace("'", "") for string in http]
-                url.append(http_clean[-1].strip(" "))
-            
-            num_pages += 1
-            print('---------')
-        print('---Scraping done!!---')
-        driver.quit()
-
-        # Convert to DataFrame
-        cols = ['Title','Date','Link','Source','Comments']
-        df_final = pd.DataFrame({'Title': title,
-                        'Date': updated_sg_time,
-                        'Link': url,
-                        'Source': source,
-                        'Comments': 'Blogs posts featured on SGInvestors'}, columns=cols)
-        df_final.insert(0, 'Ticker', 'None (General News)')
-        # drop rows without date
-        df_final.replace("", np.nan, inplace=True)
-        df_final.dropna(subset=['Date'], inplace = True)        
-        df_final = clean_df(df_final)
-
-        return df_final      
-
-    # Function to scrape business times news (initialise)
-    def businesstimes_scraping_data_init():
-
-        vdisplay = Xvfb()
-        vdisplay.start()
-
-        # Access URL and Handle Advertisement Pop-up
-        bt_url = 'https://www.businesstimes.com.sg/keywords/straits-times-index'
-
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--disable-notifications")
-        chrome_options.add_argument("--disable-popup-blocking")
-        chrome_options.add_extension('/home/airflow/airflow/dags/gighmmpiobklfepjocnamgkkbiglidom-4.44.0-Crx4Chrome.com.crx')
-
-        driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)
-        driver.get(bt_url)
-        WebDriverWait(driver, 20).until(EC.number_of_windows_to_be(2))
-
-        # 2 Tabs will open - The Business Times and AdBlocker Installation > Switch to Business Times tab
-        driver.switch_to.window(driver.window_handles[1])
-        driver.save_screenshot('/home/airflow/airflow/dags/screen1.png')
-        time.sleep(10)
-
-        # Say 'No thanks' to subscription pop-up if it appears
-        try:
-            subscription_button = driver.find_element(By.XPATH,'//*[@id="ei_subscribe"]/div/div/div/div[2]/span')
-            if subscription_button:
-                subscription_button.click()
-        except ElementNotInteractableException as e1:
-            print('Nothing to press')
-        except NoSuchElementException as e2:
-            print('Nothing to press')
-        
-        # Press 'MORE STORIES' until the end to get all possible articles
-        more_stories = True
-        while more_stories:
-            try:
-                find_button = driver.find_element(By.XPATH, '//*[@id="block-system-main"]/div/div[2]/div/div[3]/div/div/ul/li/a')
-                if find_button != None:
-                    find_button.click()
-                    time.sleep(3)
-                else:
-                    more_stories = False
-            except StaleElementReferenceException as e1:
-                continue
-            except ElementClickInterceptedException as e2:
-                continue
-            except NoSuchElementException as e3:
-                print('Page fully loaded')
-                break
-
-        # Scrape information
-        page_soup = BeautifulSoup(driver.page_source)
-        information_block = page_soup.find('div',{'class':'col-lg-8 col-md-8 col-sm-12 col-xs-12 hidden--widget-action classy-panel-styles region'})
-
-        # Initialisations
-        news_header = []
-        news_description = []
-        news_date = []
-        url = []
-
-        for header in information_block.findAll('h2',{'class':'widget__title'}):
-            header_text = header.find('a').text
-            news_header.append(header_text)
-            
-        for desc in information_block.findAll('div',{'class':'widget__description'}):
-            desc_text = desc.find('p').text
-            news_description.append(desc_text)
-            
-        for date in information_block.findAll('div',{'class':'widget__date updated'}):
-            news_date.append(date.text)
-            
-        for header in information_block.findAll('h2',{'class':'widget__title'}):
-            href = header.find('a').get('href')
-            href = 'https://www.businesstimes.com.sg' + href
-            url.append(href)
-
-        print('scrape successfully')
-        driver.quit()
-        cleaned_time = [date.strip('\n') for date in news_date]
-        cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
-        cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
-
-        # Convert to DataFrame
-        cols = ['Title','Date','Link','Source','Comments']
-        df = pd.DataFrame({'Title': news_header,
-                        'Date': cleaned_time,
-                        'Link': url,
-                        'Source': 'The Business Times',
-                        'Comments': ''}, columns=cols)
-        df.insert(0, 'Ticker', 'None (General News)')
-
-        df['Title'] = df['Title'].astype(str).str.replace("'", "")
-        df['Title'] = df['Title'].astype(str).str.replace('"', '')
-
-        return df
-
-    #################################
-    # Functions for Scrape          #
-    # (Daily)                       #
-    #################################
-
     def yahoofinance_scraping_data_daily(pulled_date):
         vdisplay = Xvfb()
         vdisplay.start()
@@ -527,15 +249,15 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                     finally: 
                         date = clean_date(date)
                     try: 
-                        date = date.strftime('%Y-%m-%d') 
+                        date = datetime.datetime.strptime(date, '%Y-%m-%d')
                     # is an ad
                     except AttributeError as e:
                         pass
-                    # scrape only news that are within limit
+                    # scrape news that > latest date from dwh
                     finally:
-                        if date =='':
+                        if date == '':
                             pass
-                        elif date < pulled_date.strftime('%Y-%m-%d'):
+                        elif date < datetime.strptime(pulled_date, '%Y-%m-%d'):
                             break
 
                         # get links
@@ -565,8 +287,8 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final.reset_index(drop=True, inplace = True) 
         return df_final
 
-
-    def sginvestor_scraping_data_daily(pulled_date):
+    # Function to scrape sginvestor
+    def helper_sginvestor():
         # Obtain page URLs (only 8 pages)
         page_url_list = ['https://sginvestors.io/news/publishers/latest/'] # 1st page
         for i in range(2,9): # for 8 pages
@@ -581,6 +303,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         vdisplay = Xvfb()
         vdisplay.start()
+
         # Chrome driver
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument("--dns-prefetch-disable")
@@ -627,7 +350,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             elif 'business-times' in src:
                 cleaned_source.append('The Business Times')
             else:
-                cleaned_source.append(src) # will need to double check
+                cleaned_source.append(src) 
 
         # Convert to DataFrame
         cols = ['Title','Date','Link','Source','Comments']
@@ -637,7 +360,15 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         'Source': cleaned_source,
                         'Comments': 'Featured on SGInvestors'}, columns=cols)
         df_final.insert(0, 'Ticker', 'None (General News)')
+        return df_final
 
+    def sginvestor_scraping_data_init():
+        df_final = helper_sginvestor()
+        df_final = clean_df(df_final)
+        return df_final
+
+    def sginvestor_scraping_data_daily(pulled_date):
+        df_final = helper_sginvestor()
         # Cleaning
         df_final['Date'] = df_final['Date'].apply(clean_date)
         df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
@@ -645,10 +376,10 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
-
         return df_final
 
-    def sginvestor_blog_scraping_data_daily(pulled_date):
+    # Function to scrape sg investor blog 
+    def helper_sginvestor_blog():
         # Obtain page URLs
         page_url_list = ['https://research.sginvestors.io/p/bloggers-say.html'] # 1st page
         for i in range(2,7): # for 6 pages
@@ -692,25 +423,20 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 
             # description - only Latest Articles have this
             if num_pages == 1:
-                for i in range(10):                 # 5 Best Rated Articles and 5 Most Popular Articles
+                for i in range(10):                 
                     description.append('')
-                    
-                for desc in page_soup.findAll('div',{'class':'description'}): # Latest Articles on Page 1
+                for desc in page_soup.findAll('div',{'class':'description'}): 
                     description.append(desc.text)
-                    
-            else:                                   # Latest Articles from Page 2
+            else:                                   
                 for desc in page_soup.findAll('div',{'class':'description'}):
                     description.append(desc.text)
             
-            # updated sg time - only Latest Articles have this
             if num_pages == 1:
-                for i in range(10):                 # 5 Best Rated Articles and 5 Most Popular Articles
+                for i in range(10):                 
                     updated_sg_time.append('')
-                    
-                for time in page_soup.findAll('div',{'class':'updatedsgtime'}): # Latest Articles on Page 1
-                    updated_sg_time.append(time.text)
-                    
-            else:                                   # Latest Articles from Page 2
+                for time in page_soup.findAll('div',{'class':'updatedsgtime'}): 
+                    updated_sg_time.append(time.text) 
+            else:                                   
                 for time in page_soup.findAll('div',{'class':'updatedsgtime'}):
                     updated_sg_time.append(time.text)
             
@@ -736,117 +462,130 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         'Source': source,
                         'Comments': 'Blogs posts featured on SGInvestors'}, columns=cols)
         df_final.insert(0, 'Ticker', 'None (General News)')
+
         # drop rows without date
         df_final.replace("", np.nan, inplace=True)
-        df_final.dropna(subset=['Date'], inplace = True)
+        df_final.dropna(subset=['Date'], inplace = True)   
+        return df_final
 
+    def sginvestor_blog_scraping_data_init():
+        df_final = helper_sginvestor_blog()
+        df_final = clean_df(df_final)
+        return df_final     
+
+    def sginvestor_blog_scraping_data_daily(pulled_date):
+        df_final = helper_sginvestor_blog()
         # Cleaning
         df_final['Date'] = df_final['Date'].apply(clean_date)
         df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
         df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
-
         return df_final
 
-    # Function to scrape business times news 
-    def businesstimes_scraping_data_daily(pulled_date):
+    # # Function to scrape business times
+    # def helper_businesstimes():
+    #     vdisplay = Xvfb()
+    #     vdisplay.start()
 
-        vdisplay = Xvfb()
-        vdisplay.start()
+    #     # Access URL and Handle Advertisement Pop-up
+    #     bt_url = 'https://www.businesstimes.com.sg/keywords/straits-times-index'
 
-        # Access URL and Handle Advertisement Pop-up
-        bt_url = 'https://www.businesstimes.com.sg/keywords/straits-times-index'
+    #     chrome_options = webdriver.ChromeOptions()
+    #     chrome_options.add_argument("--disable-notifications")
+    #     chrome_options.add_argument("--disable-popup-blocking")
+    #     chrome_options.add_extension('/home/airflow/airflow/dags/gighmmpiobklfepjocnamgkkbiglidom-4.44.0-Crx4Chrome.com.crx')
 
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--disable-notifications")
-        chrome_options.add_argument("--disable-popup-blocking")
-        chrome_options.add_extension('/home/airflow/airflow/dags/gighmmpiobklfepjocnamgkkbiglidom-4.44.0-Crx4Chrome.com.crx')
+    #     driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)
+    #     driver.get(bt_url)
+    #     WebDriverWait(driver, 20).until(EC.number_of_windows_to_be(2))
 
-        driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)
-        driver.get(bt_url)
-        WebDriverWait(driver, 20).until(EC.number_of_windows_to_be(2))
+    #     # 2 Tabs will open - The Business Times and AdBlocker Installation > Switch to Business Times tab
+    #     driver.switch_to.window(driver.window_handles[1])
+    #     driver.save_screenshot('/home/airflow/airflow/dags/screen1.png')
+    #     time.sleep(10)
 
-        # 2 Tabs will open - The Business Times and AdBlocker Installation > Switch to Business Times tab
-        driver.switch_to.window(driver.window_handles[1])
-        driver.save_screenshot('/home/airflow/airflow/dags/screen1.png')
-        time.sleep(10)
-
-        # Say 'No thanks' to subscription pop-up if it appears
-        try:
-            subscription_button = driver.find_element(By.XPATH,'//*[@id="ei_subscribe"]/div/div/div/div[2]/span')
-            if subscription_button:
-                subscription_button.click()
-        except ElementNotInteractableException as e1:
-            print('Nothing to press')
-        except NoSuchElementException as e2:
-            print('Nothing to press')
+    #     # Say 'No thanks' to subscription pop-up if it appears
+    #     try:
+    #         subscription_button = driver.find_element(By.XPATH,'//*[@id="ei_subscribe"]/div/div/div/div[2]/span')
+    #         if subscription_button:
+    #             subscription_button.click()
+    #     except ElementNotInteractableException as e1:
+    #         print('Nothing to press')
+    #     except NoSuchElementException as e2:
+    #         print('Nothing to press')
         
-        # Press 'MORE STORIES' until the end to get all possible articles
-        more_stories = True
-        while more_stories:
-            try:
-                find_button = driver.find_element(By.XPATH, '//*[@id="block-system-main"]/div/div[2]/div/div[3]/div/div/ul/li/a')
-                if find_button != None:
-                    find_button.click()
-                    time.sleep(3)
-                else:
-                    more_stories = False
-            except StaleElementReferenceException as e1:
-                continue
-            except ElementClickInterceptedException as e2:
-                continue
-            except NoSuchElementException as e3:
-                print('Page fully loaded')
-                break
+    #     # Press 'MORE STORIES' until the end to get all possible articles
+    #     more_stories = True
+    #     while more_stories:
+    #         try:
+    #             find_button = driver.find_element(By.XPATH, '//*[@id="block-system-main"]/div/div[2]/div/div[3]/div/div/ul/li/a')
+    #             if find_button != None:
+    #                 find_button.click()
+    #                 time.sleep(3)
+    #             else:
+    #                 more_stories = False
+    #         except StaleElementReferenceException as e1:
+    #             continue
+    #         except ElementClickInterceptedException as e2:
+    #             continue
+    #         except NoSuchElementException as e3:
+    #             print('Page fully loaded')
+    #             break
 
-        # Scrape information
-        page_soup = BeautifulSoup(driver.page_source)
-        information_block = page_soup.find('div',{'class':'col-lg-8 col-md-8 col-sm-12 col-xs-12 hidden--widget-action classy-panel-styles region'})
+    #     # Scrape information
+    #     page_soup = BeautifulSoup(driver.page_source)
+    #     information_block = page_soup.find('div',{'class':'col-lg-8 col-md-8 col-sm-12 col-xs-12 hidden--widget-action classy-panel-styles region'})
 
-        # Initialisations
-        news_header = []
-        news_description = []
-        news_date = []
-        url = []
+    #     # Initialisations
+    #     news_header = []
+    #     news_description = []
+    #     news_date = []
+    #     url = []
 
-        for header in information_block.findAll('h2',{'class':'widget__title'}):
-            header_text = header.find('a').text
-            news_header.append(header_text)
+    #     for header in information_block.findAll('h2',{'class':'widget__title'}):
+    #         header_text = header.find('a').text
+    #         news_header.append(header_text)
             
-        for desc in information_block.findAll('div',{'class':'widget__description'}):
-            desc_text = desc.find('p').text
-            news_description.append(desc_text)
+    #     for desc in information_block.findAll('div',{'class':'widget__description'}):
+    #         desc_text = desc.find('p').text
+    #         news_description.append(desc_text)
             
-        for date in information_block.findAll('div',{'class':'widget__date updated'}):
-            news_date.append(date.text)
+    #     for date in information_block.findAll('div',{'class':'widget__date updated'}):
+    #         news_date.append(date.text)
             
-        for header in information_block.findAll('h2',{'class':'widget__title'}):
-            href = header.find('a').get('href')
-            href = 'https://www.businesstimes.com.sg' + href
-            url.append(href)
+    #     for header in information_block.findAll('h2',{'class':'widget__title'}):
+    #         href = header.find('a').get('href')
+    #         href = 'https://www.businesstimes.com.sg' + href
+    #         url.append(href)
 
-        print('scrape successfully')
-        driver.quit()
-        cleaned_time = [date.strip('\n') for date in news_date]
-        cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
-        cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
+    #     print('scrape successfully')
+    #     driver.quit()
+    #     cleaned_time = [date.strip('\n') for date in news_date]
+    #     cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
+    #     cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
 
-        # Convert to DataFrame
-        cols = ['Title','Date','Link','Source','Comments']
-        df = pd.DataFrame({'Title': news_header,
-                        'Date': cleaned_time,
-                        'Link': url,
-                        'Source': 'The Business Times',
-                        'Comments': ''}, columns=cols)
-        df.insert(0, 'Ticker', 'None (General News)')
+    #     # Convert to DataFrame
+    #     cols = ['Title','Date','Link','Source','Comments']
+    #     df = pd.DataFrame({'Title': news_header,
+    #                     'Date': cleaned_time,
+    #                     'Link': url,
+    #                     'Source': 'The Business Times',
+    #                     'Comments': ''}, columns=cols)
+    #     df.insert(0, 'Ticker', 'None (General News)')
+    #     df['Title'] = df['Title'].astype(str).str.replace("'", "")
+    #     df['Title'] = df['Title'].astype(str).str.replace('"', '')
+    #     return df
 
-        df['Title'] = df['Title'].astype(str).str.replace("'", "")
-        df['Title'] = df['Title'].astype(str).str.replace('"', '')
-        df = check_date(df, pulled_date)
-        df.reset_index(drop=True, inplace = True)  
+    # def businesstimes_scraping_data_init():
+    #     df = helper_businesstimes()
+    #     return df
 
-        return df
+    # def businesstimes_scraping_data_daily(pulled_date):
+    #     df = helper_businesstimes()
+    #     df = check_date(df, pulled_date)
+    #     df.reset_index(drop=True, inplace = True)  
+    #     return df
 
     #############
     # Check DWH #
@@ -909,16 +648,16 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("Scrape sginvestor blog init")
         return sginvestor_blog_df
 
-    def scrape_businesstimes():
-        check_dwh = if_f_news_exists()
-        if check_dwh:
-            pulled_date = get_recent_date()
-            businesstimes_df = businesstimes_scraping_data_daily(pulled_date)
-            print("Scrape business times daily")
-        else: 
-            businesstimes_df = businesstimes_scraping_data_init()
-            print("Scrape business times init")
-        return businesstimes_df
+    # def scrape_businesstimes():
+    #     check_dwh = if_f_news_exists()
+    #     if check_dwh:
+    #         pulled_date = get_recent_date()
+    #         businesstimes_df = businesstimes_scraping_data_daily(pulled_date)
+    #         print("Scrape business times daily")
+    #     else: 
+    #         businesstimes_df = businesstimes_scraping_data_init()
+    #         print("Scrape business times init")
+    #     return businesstimes_df
 
     ########################
     # Airflow Operators    #
@@ -945,13 +684,12 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Scraping business times news 
-    businesstimes_scraping = PythonOperator(
-        task_id = 'businesstimes_scraping',
-        python_callable = scrape_businesstimes,
-        dag = dag
-    )
-
+    # # Scraping business times news 
+    # businesstimes_scraping = PythonOperator(
+    #     task_id = 'businesstimes_scraping',
+    #     python_callable = scrape_businesstimes,
+    #     dag = dag
+    # )
 
     # Start of DAG (to test)
     start_pipeline = BashOperator(
@@ -968,7 +706,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     )
 
     # TASK DEPENDENCIES
-
-    start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping, businesstimes_scraping] >> prep_gcs
+    start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
 # [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping, businesstimes_scraping]
     return extract_taskgroup
