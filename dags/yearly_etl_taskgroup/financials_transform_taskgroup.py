@@ -128,6 +128,9 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     # Staging           #
     #####################
 
+    # Check if tables in datawarehouse are empty. 
+    # If empty, do the transformation on initialisation data. 
+    # Otherwise, do the transformation on the yearly data. 
 
     def if_d_financials_exists(**kwargs):
         try:
@@ -152,6 +155,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Check which path should taken - initialisation or yearly.
     check_financials_choose_transform_path = BranchPythonOperator(
         task_id = 'check_financials_choose_transform_path',
         python_callable = if_d_financials_exists,
@@ -164,7 +168,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     # Initialisation #
     ##################
 
-    # Reformat Tables, removes duplicates
+    # Reformat Tables by unpivoting, removes duplicates
     reformat_netincome_init = BigQueryOperator(
         task_id = 'reformat_netincome_init',
         use_legacy_sql = False,
@@ -235,7 +239,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # join the tables, ensure column types
+    # join the tables containing each financial data type.
     join_financials = BigQueryOperator(
         task_id = 'join_financials',
         use_legacy_sql = False,
@@ -393,7 +397,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # join the tables, ensure column types
+    # join the tables containing each financial data type.
     join_financials_yearly = BigQueryOperator(
         task_id = 'join_financials_yearly',
         use_legacy_sql = False,
@@ -507,8 +511,6 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     )
 
 
-    
-    
     start_transformation = DummyOperator(
         task_id = 'start_transformation',
         dag = dag
@@ -521,7 +523,19 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-  
+    # TASK DEPENDENCIES
+    
+    '''
+    def force_fail():
+        raise AirflowException("This error is to test the Postgres task!")
+
+    # for testing purposes: insert this task after end_transformation, i.e. end_transformation >> force_fail
+    force_fail = PythonOperator(
+        task_id = 'force_fail',
+        python_callable = force_fail
+    )
+
+    '''
 
     start_transformation >> [stage_netincome, stage_assets, stage_liab, stage_equity, stage_div, stage_inflation] >> staging_complete
     staging_complete >> inflation_key >> check_financials_choose_transform_path

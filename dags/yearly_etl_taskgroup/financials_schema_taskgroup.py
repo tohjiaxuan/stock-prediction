@@ -40,7 +40,7 @@ PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
-def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup:
+def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup: 
     financials_schema_taskgroup = TaskGroup(group_id = 'financials_schema_tg')
 
     def create_dataset(**kwargs):
@@ -79,6 +79,8 @@ def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = create_table,
         dag = dag
     )
+
+    
 
     create_tables
     return financials_schema_taskgroup

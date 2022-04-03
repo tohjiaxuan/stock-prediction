@@ -37,8 +37,10 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
     financials_load_taskgroup = TaskGroup(group_id = 'financials_load_tg')
 
-    ## INTO DATAWAREHOUSE
+    ## LOAD INTO DATAWAREHOUSE
 
+    
+    '''
     f_stocks_table = BigQueryExecuteQueryOperator(
         task_id = 'f_stocks_table',
         use_legacy_sql = False,
@@ -53,6 +55,9 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         sql = './sql/F_stock.sql',
         dag = dag
     )
+
+    '''
+    
 
     d_financials_table = BigQueryExecuteQueryOperator(
         task_id = 'd_financials_table',
@@ -91,9 +96,10 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
 
     start_loading = DummyOperator(
         task_id = 'start_loading',
+        trigger_rule = 'all_success', # may need to edit this?
         dag = dag
     )
 
 
-    start_loading >> f_stocks_table >> [d_financials_table, d_inflation_table] >> end_loading
+    start_loading >> [d_financials_table, d_inflation_table] >> end_loading
     return financials_load_taskgroup

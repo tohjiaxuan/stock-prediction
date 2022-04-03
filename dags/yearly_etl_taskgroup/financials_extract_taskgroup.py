@@ -42,14 +42,14 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
 
     # GLOBAL HELPER FUNCTIONS
-    # Universal helper function applicable to all financial data
+    # Universal helper function applicable to scraping of all financial data
     def cond(x):
         if x.startswith("hide"):
             return False
         else:
             return True
 
-    # Universal helper function applicable to all financial data
+    # Universal helper function applicable to scrapoin of all financial data
     def replace_dash(list_needed):
         return ['0' if item == '-' else item for item in list_needed]
 
@@ -252,7 +252,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # (Initialisation - Historical) #
     #################################
 
-    # Function for (1) scraping net income 
+    # Function for actual scraping of net income 
     def income_scraping_data(**kwargs):
         table_header = ['Ticker', 'Net Income', 'Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']
         df = pd.DataFrame(columns=table_header)
@@ -260,8 +260,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end = '/financials/annual/income-statement'
         no_data = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #   print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start + i + wsj_end
                 response = requests.get(wsj_url, headers=headers)
@@ -280,15 +278,12 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021 data. 
         df.drop('Year2021', inplace=True, axis=1)
         df[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
-        #netincome_parq = df.to_parquet('netincome.parquet')
-
-        # upload to GCS:
-        #df.to_parquet('gs://stock_prediction_is3107/netincome_init.parquet')
+        
         return df
         
 
 
-    # Function for (1) scraping assets 
+    # Function for actual scraping of assets 
     def assets_scraping_data(**kwargs):
         table_header_assets = ['Ticker', 'Total Assets', 'Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']
         df_assets = pd.DataFrame(columns=table_header_assets)
@@ -296,8 +291,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_assets = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-        #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -316,14 +309,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
         df_assets.drop('Year2021', inplace=True, axis=1)
         df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
-        #assets_parq = df_assets.to_parquet('assets.parquet')
-
-        # upload to GCS:
-        #df_assets.to_parquet('gs://stock_prediction_is3107/assets_init.parquet')
+        
         return df_assets
 
 
-    # Function for (1) scraping liabilities 
+    # Function for actual scraping of liabilities 
     def liab_scraping_data(**kwargs):
         table_header_liab = ['Ticker', 'Total Liabilities', 'Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']
         df_liab = pd.DataFrame(columns=table_header_liab)
@@ -331,8 +321,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_liab = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -351,14 +339,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
         df_liab.drop('Year2021', inplace=True, axis=1)
         df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float) 
-        #liab_parq = df_liab.to_parquet('liab.parquet')
-
-        # upload to GCS:
-        #df_liab.to_parquet('gs://stock_prediction_is3107/liab_init.parquet')
         
         return df_liab
 
-    # Function for (1) scraping equity 
+    # Function for actual scraping of equity 
     def equity_scraping_data(**kwargs):
         table_header_eq = ['Ticker', 'Total Shareholders Equity', 'Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']
         df_eq = pd.DataFrame(columns=table_header_eq)
@@ -366,8 +350,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_eq = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -386,23 +368,17 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
         df_eq.drop('Year2021', inplace=True, axis=1)
         df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
-        #equity_parq = df_eq.to_parquet('equity.parquet')
-
-        # upload to GCS:
-        #df_eq.to_parquet('gs://stock_prediction_is3107/equity_init.parquet')
-
+    
         return df_eq
 
-    # Function for (1) scraping dividends 
+    # Function for actual scraping of dividends 
     def dividends_scraping_data(**kwargs):
         table_header_div = ['Ticker', 'Total Cash Dividends', 'Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']
         df_div = pd.DataFrame(columns=table_header_div)
         wsj_start_cf = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_cf = '/financials/annual/cash-flow'
         no_data_div = []
-        #for i in ['1A1','1A4', 'D05']:
         for i in tickers_df['Symbol']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_cf + i + wsj_end_cf
                 response = requests.get(wsj_url, headers=headers)
@@ -424,14 +400,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
         df_div.drop('Year2021', inplace=True, axis=1)
         df_div[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_div[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
-        #div_parq = df_div.to_parquet('div.parquet')
-
-        # upload to GCS:
-        #df_div.to_parquet('gs://stock_prediction_is3107/div_init.parquet')
-
+       
         return df_div
 
-    # Function for (1) scraping inflation
+    # Function for actual scraping of inflation
     def inflation_scraping_data(**kwargs):
         url = 'https://www.rateinflation.com/inflation-rate/singapore-inflation-rate/'
         response = requests.get(url, headers=headers)
@@ -451,7 +423,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Yearly                        #
     #################################
 
-    # Function for (1) scraping net income 
+    # Function for actual scraping of net income 
     def income_scraping_data_yearly(**kwargs):
         # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
         # hence, we minus 1 from the current year to obtain the yearly data. 
@@ -463,8 +435,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end = '/financials/annual/income-statement'
         no_data = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #   print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start + i + wsj_end
                 response = requests.get(wsj_url, headers=headers)
@@ -480,16 +450,12 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
 
-        #netincome_yearly_parq = df.to_parquet('netincome_yearly.parquet')
-
-        # upload to GCS:
-        #df.to_parquet('gs://stock_prediction_is3107/netincome_yearly.parquet')
         x = 'Year'+curr_year
         df[x] = df[x].astype(float)
         return df
 
 
-    # Function for (1) scraping assets 
+    # Function for actual scraping of assets 
     def assets_scraping_data_yearly(**kwargs):
         # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
         # hence, we minus 1 from the current year to obtain the yearly data.
@@ -501,8 +467,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_assets = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-        #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -518,17 +482,12 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
 
-        
-        #assets_yearly_parq = df_assets.to_parquet('assets_yearly.parquet')
-
-        # upload to GCS:
-        #df_assets.to_parquet('gs://stock_prediction_is3107/assets_yearly.parquet')
         x = 'Year'+curr_year
         df_assets[x] = df_assets[x].astype(float)
         return df_assets
 
 
-    # Function for (1) scraping liabilities
+    # Function for actual scraping of liabilities
     def liab_scraping_data_yearly(**kwargs):
         # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
         # hence, we minus 1 from the current year to obtain the yearly data.
@@ -540,8 +499,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_liab = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -557,16 +514,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        
-        #liab_yearly_parq = df_liab.to_parquet('liab_yearly.parquet')
-
-        # upload to GCS:
-        #df_liab.to_parquet('gs://stock_prediction_is3107/liab_yearly.parquet')
         x = 'Year'+curr_year
         df_liab[x] = df_liab[x].astype(float)
         return df_liab
 
-    # Function for (1) scraping equity
+    # Function for actual scraping of equity
     def equity_scraping_data_yearly(**kwargs):
         # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
         # hence, we minus 1 from the current year to obtain the yearly data.
@@ -578,8 +530,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_end_bs = '/financials/annual/balance-sheet'
         no_data_eq = []
         for i in tickers_df['Symbol']:
-        #for i in ['1A1','1A4', 'D05']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_bs + i + wsj_end_bs
                 response = requests.get(wsj_url, headers=headers)
@@ -595,16 +545,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        
-        #equity_yearly_parq = df_eq.to_parquet('equity_yearly.parquet')
-
-        # upload to GCS:
-        #df_eq.to_parquet('gs://stock_prediction_is3107/equity_yearly.parquet')
         x = 'Year'+curr_year
         df_eq[x] = df_eq[x].astype(float)
         return df_eq
 
-    # Function for (1) scraping dividends 
+    # Function for actual scraping of dividends 
     def dividends_scraping_data_yearly(**kwargs):
     # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
         # hence, we minus 1 from the current year to obtain the yearly data.
@@ -615,9 +560,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         wsj_start_cf = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_cf = '/financials/annual/cash-flow'
         no_data_div = []
-        #for i in ['1A1','1A4', 'D05']:
         for i in tickers_df['Symbol']:
-            #print("Starting collection for:", i)
             try: 
                 wsj_url = wsj_start_cf + i + wsj_end_cf
                 response = requests.get(wsj_url, headers=headers)
@@ -637,15 +580,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("---")
         
     
-        #div_yearly_parq = df_div.to_parquet('div_yearly.parquet')
-
-        # upload to GCS:
-        #df_div.to_parquet('gs://stock_prediction_is3107/div_yearly.parquet')
         x = 'Year'+curr_year
         df_div[x] = df_div[x].astype(float)
         return df_div
 
-    # Function for (1) scraping inflation
+    # Function for actual scraping of inflation
     def inflation_scraping_data_yearly(**kwargs):
         url = 'https://www.rateinflation.com/inflation-rate/singapore-inflation-rate/'
         response = requests.get(url, headers=headers)
@@ -671,7 +610,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Define Airflow Operators #
     ############################
 
-
+    # kickstart pipeline
     start_pipeline = DummyOperator(
         task_id = 'start_pipeline',
         dag = dag
@@ -686,10 +625,12 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
 
     ############################
-    # NEW!                     #
+    # Checking conditions      #
+    # To choose paths:         #
+    # Initialisation or yearly #
     ############################
 
-
+    # Check if D_FINANCIALS table is empty
     def if_d_financials_exists(**kwargs):
         try:
             bq_client = bigquery.Client(project=PROJECT_ID)
@@ -703,7 +644,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         except:
             return False
 
-
+    # Check if D_INFLATION table is empty
     def if_d_inflation_exists(**kwargs):
         try:
             bq_client = bigquery.Client(project=PROJECT_ID)
@@ -716,6 +657,16 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 return False
         except:
             return False
+
+    ############################
+    # Define Python Functions  #
+    # For Scraping             #
+    ############################
+
+    # If tables in datawarehouse are empty, this means that the initialisation data has not been populated. 
+    # In other words, the initialisation task has not been carried out. 
+    # In this case, if the tables in the datawarehouse are empty, scrape initialisation data. 
+    # Otherwise, scrape yearly data. 
 
     def scrape_netincome():
         check_dwh = if_d_financials_exists()
@@ -767,6 +718,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     #################################
     # Airflow Operators             #
+    # For Scraping                  #
     #################################
 
     # Scraping annual income 
