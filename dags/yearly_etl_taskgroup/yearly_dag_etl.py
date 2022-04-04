@@ -27,6 +27,7 @@ from financials_transform_taskgroup import build_financials_transform_taskgroup
 from financials_load_taskgroup import build_financials_load_taskgroup
 from financials_schema_taskgroup import build_financials_schema_taskgroup
 from financials_postgres_taskgroup import build_financials_postgres_taskgroup
+from financials_stage_taskgroup import build_financials_stage_taskgroup
 
 
 
@@ -67,12 +68,14 @@ with DAG(
     with TaskGroup("tg2", prefix_group_id=False) as section_2:
         financials_gcs_taskgroup = build_financials_gcs_taskgroup(dag=dag)
     with TaskGroup("tg3", prefix_group_id=False) as section_3:
-        financials_transform_taskgroup = build_financials_transform_taskgroup(dag=dag)
+        financials_stage_taskgroup = build_financials_stage_taskgroup(dag=dag)
     with TaskGroup("tg4", prefix_group_id=False) as section_4:
+        financials_transform_taskgroup = build_financials_transform_taskgroup(dag=dag)
+    with TaskGroup("tg5", prefix_group_id=False) as section_5:
         financials_load_taskgroup = build_financials_load_taskgroup(dag=dag)
 
     # task dependencies
-    section_0 >> section_1 >> section_2 >> section_3 >> [section_postgres, section_4]
+    section_0 >> section_1 >> section_2 >> section_3 >> section_4 >> [section_postgres, section_5]
     
     
     #section_3 >> [section_postgres, section_0]
