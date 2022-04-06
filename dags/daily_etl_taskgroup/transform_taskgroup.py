@@ -223,7 +223,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         else:
             result = df
         print(result.head())
-        result.to_parquet('gs://stock_prediction_is3107/final_commodities.parquet', engine='pyarrow', index=False)
+        result.to_parquet('gs://stock_prediction_is3107/combined_commodities.parquet', engine='pyarrow', index=False)
   
     ############################
     # Define Airflow Operators #
@@ -280,6 +280,19 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Create id for commodities
+    distinct_commodities = BigQueryOperator(
+        task_id = 'distinct_commodities_task',
+        use_legacy_sql = False,
+        sql = f'''
+        create or replace table `{PROJECT_ID}.{STAGING_DATASET}.final_commodity_prices` 
+        as select distinct
+        concat( FORMAT_TIMESTAMP('%Y-%m-%d', temp.Date) , '-', temp.Price_Category, '-COMM') as COMM_ID, *
+        from `{PROJECT_ID}.{STAGING_DATASET}.combined_commodity_prices` as temp
+        ''',
+        dag = dag
+    )
+
     # Add SMA to df
     sma_stock = PythonOperator(
         task_id = 'sma_stock_task',
@@ -329,8 +342,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     load_commodities = GoogleCloudStorageToBigQueryOperator(
         task_id = 'stage_commodities_task',
         bucket = 'stock_prediction_is3107',
-        source_objects = ['final_commodities.parquet'],
-        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.final_commodity_prices',
+        source_objects = ['combined_commodities.parquet'],
+        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.combined_commodity_prices',
         write_disposition='WRITE_TRUNCATE',
         autodetect = True,
         source_format = 'PARQUET',
@@ -344,6 +357,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     distinct_stock_prices >> sma_stock >> load_sma
     distinct_interest >> lag_int >> load_lag_interest
     [distinct_exchange, load_lag_interest, load_sma] 
-    combine_commodities >> load_commodities
+    combine_commodities >> load_commodities >> distinct_commodities
 
     return transform_taskgroup

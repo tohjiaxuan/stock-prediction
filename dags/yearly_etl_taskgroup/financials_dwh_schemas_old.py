@@ -34,8 +34,7 @@ SchemaField('Source', 'STRING', 'NULLABLE', None, ()),
 SchemaField('Comments', 'STRING', 'NULLABLE', None, ())
 ]
 
-D_COMMODITIES = [SchemaField('COMM_ID', 'STRING', 'NULLABLE', None, ()),
-SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
+D_COMMODITIES = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
 SchemaField('Open', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('High', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Low', 'FLOAT', 'NULLABLE', None, ()),
