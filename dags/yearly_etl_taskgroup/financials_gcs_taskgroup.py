@@ -72,36 +72,48 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
     netincome_cloud = PythonOperator(
         task_id = 'netincome_cloud',
         python_callable = push_netincome,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
     assets_cloud = PythonOperator(
         task_id = 'assets_cloud',
         python_callable = push_assets,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
     liab_cloud = PythonOperator(
         task_id = 'liab_cloud',
         python_callable = push_liab,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
     equity_cloud = PythonOperator(
         task_id = 'equity_cloud',
         python_callable = push_equity,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
     dividends_cloud = PythonOperator(
         task_id = 'dividends_cloud',
         python_callable = push_dividends,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
     inflation_cloud = PythonOperator(
         task_id = 'inflation_cloud',
         python_callable = push_inflation,
+        email_on_failure=True,
+        email = 'vickiyew@gmail.com',
         dag = dag
     )
 
