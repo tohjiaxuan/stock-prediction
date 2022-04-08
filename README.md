@@ -5,7 +5,7 @@
 
 
 # Steps to configure the sending of emails on task failure
-Generate Google App password: 
+### Generate Google App password: 
 
 a. Visit the App Passwords page (https://security.google.com/settings/security/apppasswords)
 
@@ -13,7 +13,7 @@ b. Select App as `airflow` and select `Generate`.
 
 c. Copy the generated 16 digit password. 
 
-Edit `airflow.cfg` file with the following:
+### Edit `airflow.cfg` file with the following:
 
 smtp_host = smtp.googlemail.com
 
