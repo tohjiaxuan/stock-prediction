@@ -164,8 +164,20 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         df = bq_client.query(query).to_dataframe()
 
         return df
-            
-    def query_commodities_table():
+
+    def query_commodities_table(): # - ADDED
+        gold_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_gold`"
+        gold_stage_df = bq_client.query(gold_query).to_dataframe()
+
+        silver_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_silver`"
+        silver_stage_df = bq_client.query(silver_query).to_dataframe()
+
+        crude_oil_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_crude_oil`"
+        crude_oil_stage_df = bq_client.query(crude_oil_query).to_dataframe()
+
+        return gold_stage_df, silver_stage_df, crude_oil_stage_df
+
+    """def query_commodities_table():
         gold_query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.init_gold`"
         gold_stage_df = bq_client.query(gold_query).to_dataframe()
 
@@ -175,9 +187,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         crude_oil_query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.init_crude_oil`"
         crude_oil_stage_df = bq_client.query(crude_oil_query).to_dataframe()
 
-        return gold_stage_df, silver_stage_df, crude_oil_stage_df
+        return gold_stage_df, silver_stage_df, crude_oil_stage_df"""
 
-    def consolidate_commodities(gold_df, silver_df, crude_oil_df):
+    def consolidate_commodities(gold_df, silver_df, crude_oil_df): # - ADDED
         # Remove duplicates
         gold_df.drop_duplicates(inplace=True)
         silver_df.drop_duplicates(inplace=True)
@@ -199,6 +211,29 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         final_df = final_df.sort_values(by = ['Date', 'Price Category'])
         final_df = final_df.reset_index(drop = True)
         return final_df
+
+    """def consolidate_commodities(gold_df, silver_df, crude_oil_df):
+        # Remove duplicates
+        gold_df.drop_duplicates(inplace=True)
+        silver_df.drop_duplicates(inplace=True)
+        crude_oil_df.drop_duplicates(inplace=True)
+
+        # Add Constant column for fact table later on
+        gold_df['Price Category'] = "Gold"
+        silver_df['Price Category'] = "Silver"
+        crude_oil_df['Price Category'] = "Crude Oil"
+
+        # Concatenate all rows
+        commodities = []
+        commodities.append(gold_df)
+        commodities.append(silver_df)
+        commodities.append(crude_oil_df)
+        final_df = pd.concat(commodities, ignore_index = True)
+
+        # Sort by date and price category
+        final_df = final_df.sort_values(by = ['Date', 'Price Category'])
+        final_df = final_df.reset_index(drop = True)
+        return final_df"""
 
     def transform_commodities():
         gold_df, silver_df, crude_oil_df = query_commodities_table()
@@ -223,7 +258,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         else:
             result = df
         print(result.head())
-        result.to_parquet('gs://stock_prediction_is3107/combined_commodities.parquet', engine='pyarrow', index=False)
+        result.to_parquet('gs://stock_prediction_is3107/final_commodities.parquet', engine='pyarrow', index=False)
   
     ############################
     # Define Airflow Operators #
@@ -280,7 +315,43 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Create id for commodities
+    # Remove Duplicates gold - ADDED
+    distinct_gold = BigQueryOperator(
+        task_id = 'distinct_gold_task',
+        use_legacy_sql = False,
+        sql = f'''
+                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_gold`
+                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-GOLD-COMM') as COMM_ID, *
+                from `{PROJECT_ID}.{STAGING_DATASET}.init_gold` as temp
+        ''',
+        dag = dag
+    )
+
+    # Remove Duplicates silver - ADDED
+    distinct_silver = BigQueryOperator(
+        task_id = 'distinct_silver_task',
+        use_legacy_sql = False,
+        sql = f'''
+                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_silver`
+                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-SILVER-COMM') as COMM_ID, *
+                from `{PROJECT_ID}.{STAGING_DATASET}.init_silver` as temp
+        ''',
+        dag = dag
+    )
+
+    # Remove Duplicates crude oil - ADDED
+    distinct_crude_oil = BigQueryOperator(
+        task_id = 'distinct_crude_oil_task',
+        use_legacy_sql = False,
+        sql = f'''
+                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_crude_oil`
+                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-CRUDE OIL-COMM') as COMM_ID, *
+                from `{PROJECT_ID}.{STAGING_DATASET}.init_crude_oil` as temp
+        ''',
+        dag = dag
+    )
+
+    """# Create id for commodities
     distinct_commodities = BigQueryOperator(
         task_id = 'distinct_commodities_task',
         use_legacy_sql = False,
@@ -291,7 +362,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         from `{PROJECT_ID}.{STAGING_DATASET}.combined_commodity_prices` as temp
         ''',
         dag = dag
-    )
+    )"""
 
     # Add SMA to df
     sma_stock = PythonOperator(
@@ -342,8 +413,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     load_commodities = GoogleCloudStorageToBigQueryOperator(
         task_id = 'stage_commodities_task',
         bucket = 'stock_prediction_is3107',
-        source_objects = ['combined_commodities.parquet'],
-        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.combined_commodity_prices',
+        source_objects = ['final_commodities.parquet'],
+        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.final_commodity_prices',
         write_disposition='WRITE_TRUNCATE',
         autodetect = True,
         source_format = 'PARQUET',
@@ -353,10 +424,11 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     ############################
     # Define Tasks Hierarchy   #
     ############################
-    [distinct_exchange, distinct_interest, distinct_stock_prices] 
+    [distinct_exchange, distinct_interest, distinct_stock_prices, distinct_gold, distinct_silver, distinct_crude_oil] 
     distinct_stock_prices >> sma_stock >> load_sma
     distinct_interest >> lag_int >> load_lag_interest
     [distinct_exchange, load_lag_interest, load_sma] 
-    combine_commodities >> load_commodities >> distinct_commodities
+    [distinct_gold, distinct_silver, distinct_crude_oil] >> combine_commodities >> load_commodities # - ADDED
+    #combine_commodities >> load_commodities >> distinct_commodities
 
     return transform_taskgroup
