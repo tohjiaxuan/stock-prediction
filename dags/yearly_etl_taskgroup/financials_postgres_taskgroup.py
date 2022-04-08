@@ -889,7 +889,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     start_transformation_postgres = DummyOperator(
         task_id = 'start_transformation_postgres',
-        trigger_rule = 'one_failed',
+        trigger_rule = 'one_failed', # activate Postgres branch on failure of transformation taskgroup. 
         dag = dag
     )
 
@@ -908,24 +908,24 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def financials_ratios_init_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="select * from reformat_financials_ratios_init;")
-        pandas_gbq.to_gbq(df, 'stock_prediction_datawarehouse.D_FINANCIALS', project_id=PROJECT_ID, if_exists='replace') 
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.reformat_financials_ratios', project_id=PROJECT_ID, if_exists='replace') 
     
     def financials_ratios_yearly_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="select * from reformat_financials_ratios_yearly;")
-        pandas_gbq.to_gbq(df, 'stock_prediction_datawarehouse.D_FINANCIALS', project_id=PROJECT_ID, if_exists='append') 
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.reformat_financials_ratios', project_id=PROJECT_ID, if_exists='replace') 
 
     def inflation_key_init_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="select * from inflation_init_key;")
-        pandas_gbq.to_gbq(df, 'stock_prediction_datawarehouse.D_INFLATION', project_id=PROJECT_ID, if_exists='replace')
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.inflation_key', project_id=PROJECT_ID, if_exists='replace')
 
     def inflation_key_yearly_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="select * from inflation_yearly_key;")
         print(df)
         print(df.dtypes)
-        pandas_gbq.to_gbq(df, 'stock_prediction_datawarehouse.D_INFLATION', project_id=PROJECT_ID, if_exists='append') 
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.inflation_key', project_id=PROJECT_ID, if_exists='replace') 
 
 
     financials_ratios_init_df_bigquery = PythonOperator(

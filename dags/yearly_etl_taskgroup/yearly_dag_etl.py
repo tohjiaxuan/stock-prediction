@@ -75,7 +75,7 @@ with DAG(
         financials_load_taskgroup = build_financials_load_taskgroup(dag=dag)
 
     # task dependencies
-    section_0 >> section_1 >> section_2 >> section_3 >> section_4 >> [section_postgres, section_5]
+    section_0 >> section_1 >> section_2 >> section_3 >> section_4 >> section_postgres >> section_5
     
     
     #section_3 >> [section_postgres, section_0]
