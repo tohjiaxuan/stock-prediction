@@ -96,7 +96,7 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
 
     start_loading = DummyOperator(
         task_id = 'start_loading',
-        trigger_rule = 'all_success', 
+        trigger_rule = 'all_done', 
         dag = dag
     )
 
