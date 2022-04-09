@@ -44,8 +44,8 @@ default_args = {
      'owner': 'airflow',
      'depends_on_past': False,
      'email': ['user@gmail.com'],
-     'email_on_failure': False,
-     'email_on_retry': False,
+     'email_on_failure': True,
+     'email_on_retry': True,
      'retries': 0,
      'start_date': datetime(2022, 3, 6)
     }
