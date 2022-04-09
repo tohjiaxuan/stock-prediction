@@ -105,6 +105,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         string_date = np.datetime_as_string(recent_date, unit='D')
+        print('Latest date:',string_date)
         return string_date
 
     ###########################
