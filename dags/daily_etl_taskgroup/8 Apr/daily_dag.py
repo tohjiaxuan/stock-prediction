@@ -51,8 +51,7 @@ default_args = {
     'email': ['nicole@png.com'],
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1, # Remember to change this when the actual project kickstarts
-    'retry_delay': timedelta(minutes=2),
+    'retries': 0, # Remember to change this when the actual project kickstarts
     'start_date': datetime(2022, 3, 15)
 }
 
