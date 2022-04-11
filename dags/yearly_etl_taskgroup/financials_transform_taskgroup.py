@@ -45,8 +45,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     #####################
 
     # Check if tables in datawarehouse are empty. 
-    # If empty, do the transformation on initialisation data. 
-    # Otherwise, do the transformation on the yearly data. 
+    # If empty, do the transformation on initialisation (historical) data. 
+    # Otherwise, do the transformation on the up-to-date yearly data. 
 
     def if_d_financials_exists(**kwargs):
         try:
@@ -238,7 +238,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Reformat financials_with_ratios table to format: ID | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
+    # Reformat financials_with_ratios table to format: ID (key) | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
     # Add a unique identifier ID to this table too (i.e. column ID)
     reformat_financial_ratios = BigQueryOperator(
         task_id = 'reformat_financial_ratios',
@@ -395,7 +395,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Reformat financials_with_ratios_yearly table to format: ID | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
+    # Reformat financials_with_ratios_yearly table to format: ID (key)| Year | Type (e.g. netincome, assets, roa or roe etc) | Value
     reformat_financial_ratios_yearly = BigQueryOperator(
         task_id = 'reformat_financial_ratios_yearly',
         use_legacy_sql = False,
@@ -412,7 +412,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Add a unique identifier ID to the inflation_yearly table (i.e. column ID)
+    # Add a unique identifier ID (key) to the inflation_yearly table (i.e. column ID)
     inflation_key = BigQueryOperator(
         task_id = 'inflation_key',
         use_legacy_sql = False,
@@ -446,6 +446,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         raise AirflowException("This error is to test the Postgres task!")
 
     # for testing purposes: insert this task after end_transformation, i.e. end_transformation >> force_fail
+    # this simulates the event that the transformation task group fails, following which, the Postgres Transformation (on-premise) task group will be triggered to perform the transformation instead.
     force_fail = PythonOperator(
         task_id = 'force_fail',
         python_callable = force_fail

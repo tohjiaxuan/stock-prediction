@@ -43,7 +43,7 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 default_args = {
      'owner': 'airflow',
      'depends_on_past': False,
-     'email': ['user@gmail.com'],
+     'email': ['user@gmail.com'], # add your own email here
      'email_on_failure': True,
      'email_on_retry': True,
      'retries': 0,

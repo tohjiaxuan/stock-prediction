@@ -38,18 +38,17 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     financials_extract_taskgroup = TaskGroup(group_id = 'financials_extract_tg')
 
     # LOAD TICKERS
-    # tickers_df wil be global
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
 
     # GLOBAL HELPER FUNCTIONS
-    # Universal helper function applicable to scraping of all financial data
+    # These are universal helper function applicable to scraping of all financial data
     def cond(x):
         if x.startswith("hide"):
             return False
         else:
             return True
 
-    # Universal helper function applicable to scrapoin of all financial data
+
     def replace_dash(list_needed):
         return ['0' if item == '-' else item for item in list_needed]
 
@@ -57,6 +56,8 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Helper Functions for Scrape   #
     # (Initialisation - Historical) #
     #################################
+
+    # Scraping the historical data (i.e. from 2018)
 
     # Helper function for scraping of net income
     def table_content_income(ticker, table, df, col_names):
@@ -151,6 +152,8 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Helper Functions for Scrape   #
     # (Yearly)                      #
     #################################
+
+    # Scraping the up-to-date data
 
     # Helper function for scraping of net income
     def table_content_income_yearly(ticker, table, df, col_names):
@@ -275,7 +278,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
 
-        # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021 data. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data. 
         df.drop('Year2021', inplace=True, axis=1)
         df[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
         
@@ -306,7 +309,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
 
-        # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
         df_assets.drop('Year2021', inplace=True, axis=1)
         df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
         
@@ -336,7 +339,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
         df_liab.drop('Year2021', inplace=True, axis=1)
         df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float) 
         
@@ -365,7 +368,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data. 
         df_eq.drop('Year2021', inplace=True, axis=1)
         df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
     
@@ -397,7 +400,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        # Remove 2021 from the Initialisation code so that we can simulate the yearly path using 2021. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
         df_div.drop('Year2021', inplace=True, axis=1)
         df_div[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_div[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
        
@@ -616,6 +619,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # signals the end of current task group's tasks
     prep_gcs = BashOperator(
         task_id="prep_gcs",
         bash_command="echo prep_gcs",
@@ -663,10 +667,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # For Scraping             #
     ############################
 
-    # If tables in datawarehouse are empty, this means that the initialisation data has not been populated. 
+    # If tables in datawarehouse are empty, this means that the initialisation (historical) data has not been populated. 
     # In other words, the initialisation task has not been carried out. 
-    # In this case, if the tables in the datawarehouse are empty, scrape initialisation data. 
-    # Otherwise, scrape yearly data. 
+    # In this case, if the tables in the datawarehouse are empty, scrape initialisation (historical) data. 
+    # Otherwise, scrape yearly up-to-date data. 
 
     def scrape_netincome():
         check_dwh = if_d_financials_exists()

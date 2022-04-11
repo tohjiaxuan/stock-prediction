@@ -1,5 +1,7 @@
 from google.cloud.bigquery import SchemaField
 
+# schemas of each fact and dimension table
+
 tables = ['F_STOCKS', 'F_NEWS', 
         'D_COMMODITIES', 'D_EX_RATE', 'D_FINANCIALS', 'D_INFLATION', 'D_INT_RATE']
 

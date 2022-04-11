@@ -38,27 +38,8 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
     financials_load_taskgroup = TaskGroup(group_id = 'financials_load_tg')
 
     ## LOAD INTO DATAWAREHOUSE
-
     
-    '''
-    f_stocks_table = BigQueryExecuteQueryOperator(
-        task_id = 'f_stocks_table',
-        use_legacy_sql = False,
-        params = {
-            'project_id': PROJECT_ID,
-            'staging_dataset': STAGING_DATASET,
-            'dwh_dataset': DWH_DATASET
-        },
-        destination_dataset_table=f'{PROJECT_ID}:{DWH_DATASET}.F_STOCKS',
-        create_disposition="CREATE_IF_NEEDED",
-        write_disposition="WRITE_APPEND",
-        sql = './sql/F_stock.sql',
-        dag = dag
-    )
-
-    '''
-    
-
+    # Load data into "Financials" Dimension table
     d_financials_table = BigQueryExecuteQueryOperator(
         task_id = 'd_financials_table',
         use_legacy_sql = False,
@@ -74,6 +55,7 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Load data into "Inflation" Dimension table
     d_inflation_table = BigQueryExecuteQueryOperator(
         task_id = 'd_inflation_table',
         use_legacy_sql = False,
@@ -89,11 +71,13 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # signals that all tasks in this task group has succesfully ran.
     end_loading = DummyOperator(
         task_id = 'end_loading',
         dag = dag
     )
 
+    # kickstart pipeline
     start_loading = DummyOperator(
         task_id = 'start_loading',
         trigger_rule = 'all_done', 

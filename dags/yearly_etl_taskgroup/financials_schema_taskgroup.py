@@ -60,6 +60,8 @@ def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup:
         else:
             logging.info(f'Dataset not created. {DWH_DATASET} already exists.')
 
+
+    # Create dimension and fact tables in the BigQuery data warehouse if they do not exist. 
     def create_table(**kwargs):
         client = bigquery.Client(project=PROJECT_ID)
         dataset_ref = client.dataset(DWH_DATASET)

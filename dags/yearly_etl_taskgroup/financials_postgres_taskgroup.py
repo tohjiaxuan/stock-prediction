@@ -728,7 +728,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '''
         )
 
-    # reformat table, add unique ID
+    # reformat table, add unique ID (key) to table
     reformat_financial_ratios_init_postgres = PostgresOperator (
         task_id = 'reformat_financial_ratios_init_postgres',
         dag = dag, 
@@ -760,7 +760,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '''
         )
 
-    # reformat table, add unique ID
+    # reformat table, add unique ID (key) to table
     reformat_financial_ratios_yearly_postgres = PostgresOperator (
         task_id = 'reformat_financial_ratios_yearly_postgres',
         dag = dag, 
@@ -793,7 +793,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         )
 
 
-    # add unique ID
+    # add unique ID (key) to table
     inflation_init_key_postgres = PostgresOperator (
         task_id = 'inflation_init_key_postgres',
         dag = dag, 
@@ -810,7 +810,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '''
         )
 
-    # add unique ID
+    # add unique ID (key) to table
     inflation_yearly_key_postgres = PostgresOperator (
         task_id = 'inflation_yearly_key_postgres',
         dag = dag, 
@@ -826,6 +826,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '''
         )
 
+    # checking condition - if dimension table in data warehouse is empty, do transformation on the historical data. Otherwise, do transformation on the yearly up-to-date data. 
     def if_d_financials_exists(**kwargs):
         try:
             bq_client = bigquery.Client(project=PROJECT_ID)
@@ -889,7 +890,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     start_transformation_postgres = DummyOperator(
         task_id = 'start_transformation_postgres',
-        trigger_rule = 'one_failed', # activate Postgres branch on failure of transformation taskgroup. 
+        trigger_rule = 'one_failed', # activate Postgres branch only upon failure of the previous transformation taskgroup. 
         dag = dag
     )
 
@@ -900,9 +901,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-    # Load Postgresql tables into the datawarehouse.
-    # First, convert the Postgresql tables into a dataframe. 
-    # Second, directly push the dataframes into the BigQuery datawarehouse.
+    # Load Postgresql tables into the staging area in BigQuery for loading into the data warehouse in BigQuery.
+    # First, convert the Postgresql tables into a dataframe with the get_pandas_df helper function. 
+    # Second, directly push the dataframes into the BigQuery staging area.
     
 
     def financials_ratios_init_df_bigquery(**kwargs):
