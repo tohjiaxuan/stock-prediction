@@ -9,6 +9,8 @@ from google.cloud import bigquery
 from google.cloud import storage
 from google.cloud.exceptions import NotFound
 from airflow.utils.task_group import TaskGroup
+from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 
 import json
 import os
@@ -26,10 +28,6 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     transform_taskgroup = TaskGroup(group_id = 'transform_taskgroup')
 
-    ############################
-    # Define Python Functions  #
-    ############################
-
     join_financial_news = BigQueryOperator(
     task_id = 'join_financial_news',
     use_legacy_sql = False,
@@ -39,9 +37,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             (select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_news` union distinct
             select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
-                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` union distinct
-            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
-                from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news` 
+                from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` 
             ) temp
     ''',
     dag = dag
@@ -59,27 +55,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-
-    ############################
-    # Define Airflow Operators #
-    ############################
-
-    # # Remove Duplicates
-    # distinct_stock_prices = BigQueryOperator(
-    #     task_id = 'distinct_stock_prices_task',
-    #     use_legacy_sql = False,
-    #     sql = f'''
-    #     create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_hist_stock_prices` 
-    #     as select distinct *
-    #     from `{PROJECT_ID}.{STAGING_DATASET}.init_hist_stock_prices`
-    #     ''',
-    #     dag = dag
-    # )
-
-
-    ############################
-    # Define Tasks Hierarchy   #
-    ############################
     start_transformation >> join_financial_news >> end_transformation
 
     return transform_taskgroup

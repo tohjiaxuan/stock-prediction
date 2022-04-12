@@ -19,6 +19,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from xvfbwrapper import Xvfb
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium import webdriver
+from pyvirtualdisplay import Display
 
 import json
 import os
@@ -124,6 +127,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Function to scrape news that > latest date from dwh
     def check_date(df, pulled_date):
         df = df[(df['Date'] > pulled_date)]
+        print('check date', len(df))
         df.reset_index(drop=True, inplace = True) 
         return df
 
@@ -132,160 +136,168 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     #################################
 
     # Function to scrape yahoo finance news (initialise)
-    def yahoofinance_scraping_data_init():
-        vdisplay = Xvfb()
-        vdisplay.start()
+    # def yahoofinance_scraping_data_init():
+    #     vdisplay = Xvfb()
+    #     vdisplay.start()
 
-        # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
+    #     options = webdriver.FirefoxOptions()
+    #     options.add_argument('--headless')
+    #     driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
 
-        # scrape news for each ticker
-        start = 'https://sg.finance.yahoo.com/quote/'
-        end = '/news'
-        df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
+    #     # # Chrome driver
+    #     # chrome_options = webdriver.ChromeOptions()
+    #     # chrome_options.add_argument("--dns-prefetch-disable")
+    #     # driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
+
+    #     # scrape news for each ticker
+    #     start = 'https://sg.finance.yahoo.com/quote/'
+    #     end = '/news'
+    #     df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
         
-        for ticker in tickers_df['New Symbol']:
-            try: 
-                link = start + ticker + end
-                driver.get(link)
-                time.sleep(5)
-                print('-----------------')
-                print(ticker)
+    #     for ticker in tickers_df['New Symbol']:
+    #         try: 
+    #             link = start + ticker + end
+    #             driver.get(link)
+    #             time.sleep(5)
+    #             print('-----------------')
+    #             print(ticker)
 
-                # scrolling
-                height = driver.execute_script("return document.documentElement.scrollHeight")
-                for i in range(height):
-                    driver.execute_script('window.scrollBy(0,20)') # scroll by 20 on each iteration
-                    height = driver.execute_script("return document.documentElement.scrollHeight") 
-                    # reset height to the new height after scroll-triggered elements have been loaded. 
-                test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
-                for i in range(len(test)):
-                    link = ''
-                    date = ''
-                    title = ''
-                    index = i+1
+    #             # scrolling
+    #             height = driver.execute_script("return document.documentElement.scrollHeight")
+    #             for i in range(height):
+    #                 driver.execute_script('window.scrollBy(0,30)') # scroll by 20 on each iteration
+    #                 height = driver.execute_script("return document.documentElement.scrollHeight") 
+    #                 # reset height to the new height after scroll-triggered elements have been loaded. 
+    #             test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
+    #             for i in range(len(test)):
+    #                 link = ''
+    #                 date = ''
+    #                 title = ''
+    #                 index = i+1
 
-                    # get links
-                    elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
-                    link =elems_links.get_attribute("href")
+    #                 # get links
+    #                 elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
+    #                 link =elems_links.get_attribute("href")
 
-                    # get titles
-                    elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
-                    title =elems_titles.text
+    #                 # get titles
+    #                 elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
+    #                 title =elems_titles.text
 
-                    # get dates
-                    try:
-                        elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
-                        date = elems_dates.text
-                    # ad
-                    except NoSuchElementException as e:
-                        pass
-                    finally: 
-                        row = [ticker, title, date, link]
-                        df_final.loc[len(df_final)] = row
-            except TimeoutException as e:
-                pass
+    #                 # get dates
+    #                 try:
+    #                     elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
+    #                     date = elems_dates.text
+    #                 # ad
+    #                 except NoSuchElementException as e:
+    #                     pass
+    #                 finally: 
+    #                     row = [ticker, title, date, link]
+    #                     df_final.loc[len(df_final)] = row
+    #         except TimeoutException as e:
+    #             pass
 
-        print('scrape successfully')
-        driver.quit()
+    #     print('scrape successfully')
+    #     driver.quit()
 
-        df_final = clean_df(df_final)
+    #     df_final = clean_df(df_final)
 
-        # remove row if it is ad
-        df_final.replace("", np.nan, inplace=True)
-        df_final.dropna(subset=['Date'], inplace = True)
-        df_final['Source'] = 'Yahoo Finance News'
-        df_final['Comments'] = ''
-        df_final.reset_index(drop=True, inplace = True) 
+    #     # remove row if it is ad
+    #     df_final.replace("", np.nan, inplace=True)
+    #     df_final.dropna(subset=['Date'], inplace = True)
+    #     df_final['Source'] = 'Yahoo Finance News'
+    #     df_final['Comments'] = ''
+    #     df_final.reset_index(drop=True, inplace = True) 
 
-        return df_final
+    #     return df_final
 
-    def yahoofinance_scraping_data_daily(pulled_date):
-        vdisplay = Xvfb()
-        vdisplay.start()
+    # def yahoofinance_scraping_data_daily(pulled_date):
+    #     vdisplay = Xvfb()
+    #     vdisplay.start()
 
-        # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
+    #     options = webdriver.FirefoxOptions()
+    #     options.add_argument('--headless')
+    #     driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
 
-        # scrape news for each ticker
-        start = 'https://sg.finance.yahoo.com/quote/'
-        end = '/news'
-        df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
-        current_time = datetime.today()
-        limit = current_time + relativedelta(days=-1)
+    #     # # Chrome driver
+    #     # chrome_options = webdriver.ChromeOptions()
+    #     # chrome_options.add_argument("--dns-prefetch-disable")
+    #     # driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
 
-        for ticker in tickers_df['New Symbol']:
-            try: 
-                link = start + ticker + end
-                driver.get(link)
-                time.sleep(5)
-                print('-----------------')
-                print(ticker)
+    #     # scrape news for each ticker
+    #     start = 'https://sg.finance.yahoo.com/quote/'
+    #     end = '/news'
+    #     df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
+    #     current_time = datetime.today()
+    #     limit = current_time + relativedelta(days=-1)
 
-                # scrolling
-                height = driver.execute_script("return document.documentElement.scrollHeight")
-                for i in range(height):
-                    driver.execute_script('window.scrollBy(0,20)') # scroll by 20 on each iteration
-                    height = driver.execute_script("return document.documentElement.scrollHeight") 
-                    # reset height to the new height after scroll-triggered elements have been loaded. 
-                test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
+    #     for ticker in tickers_df['New Symbol']:
+    #         try: 
+    #             link = start + ticker + end
+    #             driver.get(link)
+    #             time.sleep(5)
+    #             print('-----------------')
+    #             print(ticker)
+
+    #             # scrolling
+    #             height = driver.execute_script("return document.documentElement.scrollHeight")
+    #             for i in range(height):
+    #                 driver.execute_script('window.scrollBy(0,30)') # scroll by 20 on each iteration
+    #                 height = driver.execute_script("return document.documentElement.scrollHeight") 
+    #                 # reset height to the new height after scroll-triggered elements have been loaded. 
+    #             test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
                 
-                for i in range(len(test)):
-                    link = ''
-                    date = ''
-                    title = ''
-                    index = i+1
+    #             for i in range(len(test)):
+    #                 link = ''
+    #                 date = ''
+    #                 title = ''
+    #                 index = i+1
                     
-                    # get dates
-                    try:
-                        elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
-                        date = elems_dates.text
-                    except NoSuchElementException as e:
-                        pass
-                    finally: 
-                        date = clean_date(date)
-                    try: 
-                        date = datetime.datetime.strptime(date, '%Y-%m-%d')
-                    # is an ad
-                    except AttributeError as e:
-                        pass
-                    # scrape news that > latest date from dwh
-                    finally:
-                        if date == '':
-                            pass
-                        elif date < datetime.strptime(pulled_date, '%Y-%m-%d'):
-                            break
+    #                 # get dates
+    #                 try:
+    #                     elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
+    #                     date = elems_dates.text
+    #                 except NoSuchElementException as e:
+    #                     pass
+    #                 finally: 
+    #                     date = clean_date(date)
+    #                 try: 
+    #                     date = datetime.datetime.strptime(date, '%Y-%m-%d')
+    #                 # is an ad
+    #                 except AttributeError as e:
+    #                     pass
+    #                 # scrape news that > latest date from dwh
+    #                 finally:
+    #                     if date == '':
+    #                         pass
+    #                     elif date < datetime.strptime(pulled_date, '%Y-%m-%d'):
+    #                         break
 
-                        # get links
-                        elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
-                        link =elems_links.get_attribute("href")
+    #                     # get links
+    #                     elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
+    #                     link =elems_links.get_attribute("href")
 
-                        # get titles
-                        elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
-                        title =elems_titles.text
+    #                     # get titles
+    #                     elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
+    #                     title =elems_titles.text
 
-                        row = [ticker, title, date, link]
-                        df_final.loc[len(df_final)] = row
+    #                     row = [ticker, title, date, link]
+    #                     df_final.loc[len(df_final)] = row
 
-            except TimeoutException as e:
-                pass
+    #         except TimeoutException as e:
+    #             pass
 
-        print('scrape successfully')
-        driver.quit()
+    #     print('scrape successfully')
+    #     driver.quit()
         
-        # remove row if it is ad
-        df_final.replace("", np.nan, inplace=True)
-        df_final.dropna(subset=['Date'], inplace = True)
-        df_final['Source'] = 'Yahoo Finance News'
-        df_final['Comments'] = ''
-        df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
-        df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
-        df_final.reset_index(drop=True, inplace = True) 
-        return df_final
+    #     # remove row if it is ad
+    #     df_final.replace("", np.nan, inplace=True)
+    #     df_final.dropna(subset=['Date'], inplace = True)
+    #     df_final['Source'] = 'Yahoo Finance News'
+    #     df_final['Comments'] = ''
+    #     df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
+    #     df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
+    #     df_final.reset_index(drop=True, inplace = True) 
+    #     return df_final
 
     # Function to scrape sginvestor
     def helper_sginvestor():
@@ -304,10 +316,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         vdisplay = Xvfb()
         vdisplay.start()
 
+        options = webdriver.FirefoxOptions()
+        options.add_argument('--headless')
+        driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
+        
         # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
+        # chrome_options = webdriver.ChromeOptions()
+        # chrome_options.add_argument("--no-sandbox") 
+        # chrome_options.add_argument("--dns-prefetch-disable")
+        # chrome_options.add_argument("--disable-dev-shm-usage")
+        # chrome_options.add_argument("--headless")
+        # chrome_options.add_argument("--remote-debugging-port=9222")
+        # driver = webdriver.Chrome(ChromeDriverManager(version="96.0.4664.18").install(), chrome_options=chrome_options)
 
         # Scraping of pages
         for page_url in page_url_list[:]:
@@ -360,6 +380,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         'Source': cleaned_source,
                         'Comments': 'Featured on SGInvestors'}, columns=cols)
         df_final.insert(0, 'Ticker', 'None (General News)')
+        print('len', len(df_final))
         return df_final
 
     def sginvestor_scraping_data_init():
@@ -396,10 +417,16 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         vdisplay = Xvfb()
         vdisplay.start()
+
+        options = webdriver.FirefoxOptions()
+        options.add_argument('--headless')
+        driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
+
         # Chrome driver
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument("--dns-prefetch-disable")
-        driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
+        # chrome_options = webdriver.ChromeOptions()
+        # chrome_options.add_argument("--dns-prefetch-disable")
+        # driver = webdriver.Chrome(chrome_options=chrome_options)
+        # driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=chrome_options)
 
         # Scraping of pages
         for page_url in page_url_list[:]:
@@ -462,6 +489,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         'Source': source,
                         'Comments': 'Blogs posts featured on SGInvestors'}, columns=cols)
         df_final.insert(0, 'Ticker', 'None (General News)')
+        print('len', len(df_final))
 
         # drop rows without date
         df_final.replace("", np.nan, inplace=True)
@@ -482,110 +510,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
         return df_final
-
-    # # Function to scrape business times
-    # def helper_businesstimes():
-    #     vdisplay = Xvfb()
-    #     vdisplay.start()
-
-    #     # Access URL and Handle Advertisement Pop-up
-    #     bt_url = 'https://www.businesstimes.com.sg/keywords/straits-times-index'
-
-    #     chrome_options = webdriver.ChromeOptions()
-    #     chrome_options.add_argument("--disable-notifications")
-    #     chrome_options.add_argument("--disable-popup-blocking")
-    #     chrome_options.add_extension('/home/airflow/airflow/dags/gighmmpiobklfepjocnamgkkbiglidom-4.44.0-Crx4Chrome.com.crx')
-
-    #     driver = webdriver.Chrome(ChromeDriverManager().install(), options = chrome_options)
-    #     driver.get(bt_url)
-    #     WebDriverWait(driver, 20).until(EC.number_of_windows_to_be(2))
-
-    #     # 2 Tabs will open - The Business Times and AdBlocker Installation > Switch to Business Times tab
-    #     driver.switch_to.window(driver.window_handles[1])
-    #     driver.save_screenshot('/home/airflow/airflow/dags/screen1.png')
-    #     time.sleep(10)
-
-    #     # Say 'No thanks' to subscription pop-up if it appears
-    #     try:
-    #         subscription_button = driver.find_element(By.XPATH,'//*[@id="ei_subscribe"]/div/div/div/div[2]/span')
-    #         if subscription_button:
-    #             subscription_button.click()
-    #     except ElementNotInteractableException as e1:
-    #         print('Nothing to press')
-    #     except NoSuchElementException as e2:
-    #         print('Nothing to press')
-        
-    #     # Press 'MORE STORIES' until the end to get all possible articles
-    #     more_stories = True
-    #     while more_stories:
-    #         try:
-    #             find_button = driver.find_element(By.XPATH, '//*[@id="block-system-main"]/div/div[2]/div/div[3]/div/div/ul/li/a')
-    #             if find_button != None:
-    #                 find_button.click()
-    #                 time.sleep(3)
-    #             else:
-    #                 more_stories = False
-    #         except StaleElementReferenceException as e1:
-    #             continue
-    #         except ElementClickInterceptedException as e2:
-    #             continue
-    #         except NoSuchElementException as e3:
-    #             print('Page fully loaded')
-    #             break
-
-    #     # Scrape information
-    #     page_soup = BeautifulSoup(driver.page_source)
-    #     information_block = page_soup.find('div',{'class':'col-lg-8 col-md-8 col-sm-12 col-xs-12 hidden--widget-action classy-panel-styles region'})
-
-    #     # Initialisations
-    #     news_header = []
-    #     news_description = []
-    #     news_date = []
-    #     url = []
-
-    #     for header in information_block.findAll('h2',{'class':'widget__title'}):
-    #         header_text = header.find('a').text
-    #         news_header.append(header_text)
-            
-    #     for desc in information_block.findAll('div',{'class':'widget__description'}):
-    #         desc_text = desc.find('p').text
-    #         news_description.append(desc_text)
-            
-    #     for date in information_block.findAll('div',{'class':'widget__date updated'}):
-    #         news_date.append(date.text)
-            
-    #     for header in information_block.findAll('h2',{'class':'widget__title'}):
-    #         href = header.find('a').get('href')
-    #         href = 'https://www.businesstimes.com.sg' + href
-    #         url.append(href)
-
-    #     print('scrape successfully')
-    #     driver.quit()
-    #     cleaned_time = [date.strip('\n') for date in news_date]
-    #     cleaned_time = [datetime.strptime(date, '%b %d, %Y %I:%M %p') for date in cleaned_time]
-    #     cleaned_time = [date.strftime('%Y-%m-%d') for date in cleaned_time]
-
-    #     # Convert to DataFrame
-    #     cols = ['Title','Date','Link','Source','Comments']
-    #     df = pd.DataFrame({'Title': news_header,
-    #                     'Date': cleaned_time,
-    #                     'Link': url,
-    #                     'Source': 'The Business Times',
-    #                     'Comments': ''}, columns=cols)
-    #     df.insert(0, 'Ticker', 'None (General News)')
-    #     df['Title'] = df['Title'].astype(str).str.replace("'", "")
-    #     df['Title'] = df['Title'].astype(str).str.replace('"', '')
-    #     return df
-
-    # def businesstimes_scraping_data_init():
-    #     df = helper_businesstimes()
-    #     return df
-
-    # def businesstimes_scraping_data_daily(pulled_date):
-    #     df = helper_businesstimes()
-    #     df = check_date(df, pulled_date)
-    #     df.reset_index(drop=True, inplace = True)  
-    #     return df
 
     #############
     # Check DWH #
@@ -610,20 +534,21 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         # string_date = '2022-03-25'
-        string_date = recent_date.strftime('%Y-%m-%d')
+        string_date = datetime.strptime(recent_date, '%Y-%m-%d').strftime('%Y-%m-%d')
+        # recent_date.strftime('%Y-%m-%d')
         print('string_date', string_date)
         return string_date
 
-    def scrape_yahoofinance():
-        check_dwh = if_f_news_exists()
-        if check_dwh:
-            pulled_date = get_recent_date()
-            yahoofinance_df = yahoofinance_scraping_data_daily(pulled_date)
-            print("Scrape yahoofinance daily")
-        else: 
-            yahoofinance_df = yahoofinance_scraping_data_init()
-            print("Scrape yahoofinance init")
-        return yahoofinance_df
+    # def scrape_yahoofinance():
+    #     check_dwh = if_f_news_exists()
+    #     if check_dwh:
+    #         pulled_date = get_recent_date()
+    #         yahoofinance_df = yahoofinance_scraping_data_daily(pulled_date)
+    #         print("Scrape yahoofinance daily")
+    #     else: 
+    #         yahoofinance_df = yahoofinance_scraping_data_init()
+    #         print("Scrape yahoofinance init")
+    #     return yahoofinance_df
 
     def scrape_sginvestor():
         check_dwh = if_f_news_exists()
@@ -648,27 +573,16 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("Scrape sginvestor blog init")
         return sginvestor_blog_df
 
-    # def scrape_businesstimes():
-    #     check_dwh = if_f_news_exists()
-    #     if check_dwh:
-    #         pulled_date = get_recent_date()
-    #         businesstimes_df = businesstimes_scraping_data_daily(pulled_date)
-    #         print("Scrape business times daily")
-    #     else: 
-    #         businesstimes_df = businesstimes_scraping_data_init()
-    #         print("Scrape business times init")
-    #     return businesstimes_df
-
     ########################
     # Airflow Operators    #
     ########################
 
-    # Scraping yahoo finance news 
-    yahoofinance_scraping = PythonOperator(
-        task_id = 'yahoofinance_scraping',
-        python_callable = scrape_yahoofinance,
-        dag = dag
-    )
+    # # Scraping yahoo finance news 
+    # yahoofinance_scraping = PythonOperator(
+    #     task_id = 'yahoofinance_scraping',
+    #     python_callable = scrape_yahoofinance,
+    #     dag = dag
+    # )
 
     # Scraping sg investor news 
     sginvestor_scraping = PythonOperator(
@@ -684,13 +598,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # # Scraping business times news 
-    # businesstimes_scraping = PythonOperator(
-    #     task_id = 'businesstimes_scraping',
-    #     python_callable = scrape_businesstimes,
-    #     dag = dag
-    # )
-
     # Start of DAG (to test)
     start_pipeline = BashOperator(
         task_id = 'start_pipeline',
@@ -701,11 +608,12 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     prep_gcs = BashOperator(
         task_id="prep_gcs",
         bash_command="echo prep_gcs",
-        trigger_rule="all_done",
+        # trigger_rule="all_done",
         dag=dag
     )
 
     # TASK DEPENDENCIES
-    start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
-# [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping, businesstimes_scraping]
+    start_pipeline >> [sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
+    # start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
     return extract_taskgroup
+

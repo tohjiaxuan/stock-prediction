@@ -18,6 +18,7 @@ from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
 from load_taskgroup import build_load_taskgroup
+from postgres_taskgroup import build_postgres_taskgroup
 
 import json
 import os
@@ -38,12 +39,27 @@ curr_date = datetime.today().strftime('%Y-%m-%d')
 default_args = {
     'owner': 'Nicole',
     'depends_on_past': False,
-    'email': ['nicole@png.com'],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 0, # Remember to change this when the actual project kickstarts
+    'email': ['charlottesihan@gmail.com'],
+    'email_on_failure': True,
+    'email_on_retry': True,
+    'retries': 1, 
+    'retry_delay': timedelta(minutes=2),
     'start_date': datetime(2022, 3, 15)
 }
+
+def check_news(**kwargs):
+    sginvestor = kwargs['task_instance'].xcom_pull(task_ids='sginvestor_scraping')
+    sginvestor_blog = kwargs['task_instance'].xcom_pull(task_ids='sginvestor_blog_scraping')
+    # sginvestor = ti.xcom_pull(task_ids='sginvestor_scraping')
+    print('sginvestor', sginvestor)
+    print(len(sginvestor))
+    # sginvestor_blog = ti.xcom_pull(task_ids='sginvestor_blog_scraping')
+    print('sginvestor_blog', sginvestor_blog)
+    print(len(sginvestor_blog))
+    if sginvestor.empty and sginvestor_blog.empty:
+        return 'end_task'
+    return 'start_gcs_task'
+
 
 with DAG(
     dag_id="daily_financial_news",
@@ -52,6 +68,28 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
+
+    start_daily = BashOperator(
+        task_id = 'start_task',
+        bash_command = 'echo start',
+        dag = dag
+    )
+
+    end_daily = BashOperator(
+        task_id = 'end_task',
+        bash_command = 'echo end',
+        trigger_rule = 'none_failed',
+        dag = dag
+    )
+
+    dag_path = BranchPythonOperator(
+        task_id = 'dag_path_task',
+        python_callable = check_news,
+        do_xcom_push = False,
+        provide_context = True,
+        dag = dag
+    )
+
     with TaskGroup("extract", prefix_group_id = False) as section_1:
         extract_taskgroup = build_extract_taskgroup(dag=dag)
     with TaskGroup("gcs", prefix_group_id = False) as section_2:
@@ -62,5 +100,19 @@ with DAG(
         transform_taskgroup = build_transform_taskgroup(dag=dag)
     with TaskGroup("load", prefix_group_id = False) as section_5:
         load_taskgroup = build_load_taskgroup(dag=dag)
+    with TaskGroup("postgres", prefix_group_id = False) as postgres:
+        postgres_taskgroup = build_postgres_taskgroup(dag=dag)
 
-    section_1 >> section_2 >> section_3 >> section_4 >> section_5
+    start_gcs = BashOperator(
+        task_id = 'start_gcs_task',
+        bash_command = 'echo start',
+        dag = dag
+    )
+
+
+    start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
+    start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
+        # start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
+    
+
+    # section_1 >> section_2 >> section_3 >> section_4 >> section_5
