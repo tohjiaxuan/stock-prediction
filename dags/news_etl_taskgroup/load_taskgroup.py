@@ -95,13 +95,6 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    end_loading = BashOperator(
-        task_id="end_loading",
-        bash_command="echo end_loading",
-        trigger_rule="all_done",
-        dag=dag
-    )
-
-    start_loading >> f_news_table >> end_loading
+    start_loading >> f_news_table 
 
     return load_taskgroup

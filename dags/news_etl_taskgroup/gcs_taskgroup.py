@@ -52,7 +52,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Sginvestor to Cloud
     sginvestor_cloud = PythonOperator(
         task_id = 'sginvestor_cloud',
-        trigger_rule = 'none_failed',
         python_callable = push_sginvestor_news,
         dag = dag
     )
@@ -60,7 +59,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Sginvestor Blog to Cloud
     sginvestor_blog_cloud = PythonOperator(
         task_id = 'sginvestor_blog_cloud',
-        trigger_rule = 'none_failed',
         python_callable = push_sginvestor_blog_news,
         dag = dag
     )

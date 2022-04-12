@@ -48,10 +48,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    end_transformation = BashOperator(
+    end_transformation = DummyOperator(
         task_id="end_transformation",
-        bash_command="echo end_transformation",
-        trigger_rule="all_done",
         dag=dag
     )
 

@@ -60,10 +60,8 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    end_staging = BashOperator(
+    end_staging = DummyOperator(
         task_id="end_staging",
-        bash_command="echo end_staging",
-        trigger_rule="all_done",
         dag=dag
     )
 
