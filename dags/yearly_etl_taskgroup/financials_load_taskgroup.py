@@ -89,14 +89,12 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-
+    
     start_loading = DummyOperator(
-        task_id = 'start_loading',
-        trigger_rule = 'all_done', 
+        task_id = 'start_loading', 
         dag = dag
     )
     
-
     
     start_loading >> [d_financials_table, d_inflation_table]
     return financials_load_taskgroup
