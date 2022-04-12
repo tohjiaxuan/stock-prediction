@@ -78,7 +78,6 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    f_stocks_table >> [d_exchange_table, d_interest_table] 
-    d_commodities_table
+    [f_stocks_table,d_commodities_table, d_exchange_table, d_interest_table] 
 
     return load_taskgroup
