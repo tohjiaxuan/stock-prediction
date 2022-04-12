@@ -435,7 +435,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     end_transformation = BashOperator(
         task_id="end_transformation",
         bash_command="echo end_transformation",
-        trigger_rule="all_done",
+        trigger_rule="one_success",
         dag=dag
     )
 
