@@ -43,7 +43,7 @@ def build_financials_stage_taskgroup(dag: DAG) -> TaskGroup:
     ##############
 
 
-    # Load net income from GCS to BigQuery (BQ)
+    # Load net income from GCS to BQ
     stage_netincome = GCSToBigQueryOperator(
         task_id = 'stage_netincome',
         bucket = 'stock_prediction_is3107',
@@ -93,7 +93,7 @@ def build_financials_stage_taskgroup(dag: DAG) -> TaskGroup:
 
     # Load div from GCS to BQ
     stage_div = GCSToBigQueryOperator(
-        task_id = 'stage_div_init',
+        task_id = 'stage_div',
         bucket = 'stock_prediction_is3107',
         source_objects = ['div.parquet'],
         destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.div',

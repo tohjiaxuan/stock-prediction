@@ -41,7 +41,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
     ############################
 
 
-    # Pull extracted data from XCOMs and push to google cloud storage
+    # Pull data from XCOMs for financials and push to cloud
 
     def push_netincome(ti):
         netincome = ti.xcom_pull(task_ids='income_scraping')
@@ -68,12 +68,13 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         inflation.to_parquet('gs://stock_prediction_is3107/inflation.parquet')
 
 
-    # Operators to push to google cloud storage
+    # Operator to push to cloud
     netincome_cloud = PythonOperator(
         task_id = 'netincome_cloud',
         python_callable = push_netincome,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
@@ -82,6 +83,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = push_assets,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
@@ -90,6 +92,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = push_liab,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
@@ -98,6 +101,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = push_equity,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
@@ -106,6 +110,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = push_dividends,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
@@ -114,22 +119,11 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = push_inflation,
         email_on_failure=True,
         email = 'vickiyew@gmail.com',
+        provide_context = True,
         dag = dag
     )
 
 
-    # kickstart pipeline
-    start_gcs = DummyOperator(
-        task_id = 'start_gcs',
-        dag = dag
-    )
-
-    # signals that all tasks in this task group has succesfully ran.
-    loaded_gcs = DummyOperator(
-        task_id = 'loaded_gcs',
-        dag = dag
-    )
-
-    start_gcs >> [netincome_cloud, assets_cloud, liab_cloud, equity_cloud, dividends_cloud, inflation_cloud] >> loaded_gcs
+    [netincome_cloud, assets_cloud, liab_cloud, equity_cloud, dividends_cloud, inflation_cloud]
 
     return financials_gcs_taskgroup
