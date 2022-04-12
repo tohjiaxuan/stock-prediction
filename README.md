@@ -38,7 +38,7 @@ b. Change SqlAlchemy connection: replace with `sql_alchemy_conn = postgresql+psy
 
 Note: you will first be prompted to create a new user. Create a new user with your own credentials. 
 
-a. Run `airflow init db`
+a. Run `airflow db init`
 
 b. Re-run the airflow webserver and scheduler. 
 
