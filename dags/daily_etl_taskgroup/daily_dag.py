@@ -14,12 +14,12 @@ from google.cloud import storage
 from pandas_datareader import data as pdr
 
 from airflow.utils.task_group import TaskGroup
-from financials_schema_taskgroup import build_financials_schema_taskgroup
+# from financials_schema_taskgroup import build_financials_schema_taskgroup
 from extract_taskgroup import build_extract_taskgroup
 from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
-from load_taskgroup import build_load_taskgroup
+# from load_taskgroup import build_load_taskgroup
 
 import json
 import os
@@ -56,6 +56,12 @@ default_args = {
     'start_date': datetime(2022, 3, 15)
 }
 
+def check_stocks(**kwargs):
+    df = kwargs['task_instance'].xcom_pull(task_ids='stock_scraping_data')
+    if df.empty:
+        return 'end_task'
+    return 'section_2'
+
 with DAG(
     dag_id="daily_dag",
     schedule_interval="@daily",
@@ -63,8 +69,29 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
-    with TaskGroup("tg0", prefix_group_id = False) as section_0:
-        financials_schema_taskgroup = build_financials_schema_taskgroup(dag=dag)
+    # with TaskGroup("tg0", prefix_group_id = False) as section_0:
+    #     financials_schema_taskgroup = build_financials_schema_taskgroup(dag=dag)
+
+    start_daily = BashOperator(
+        task_id = 'start_task',
+        bash_command = 'echo start',
+        dag = dag
+    )
+
+    end_daily = BashOperator(
+        task_id = 'end_task',
+        bash_command = 'echo end',
+        trigger_rule = 'none_failed',
+        dag = dag
+    )
+
+    dag_path = BranchPythonOperator(
+        task_id = 'dag_path_task',
+        python_callable = check_stocks,
+        do_xcom_push = False,
+        dag = dag
+    )
+
     with TaskGroup("extract", prefix_group_id = False) as section_1:
         extract_taskgroup = build_extract_taskgroup(dag=dag)
     with TaskGroup("gcs", prefix_group_id = False) as section_2:
@@ -73,7 +100,8 @@ with DAG(
         stage_taskgroup = build_stage_taskgroup(dag=dag)
     with TaskGroup("transform", prefix_group_id = False) as section_4:
         transform_taskgroup = build_transform_taskgroup(dag=dag)
-    with TaskGroup("load", prefix_group_id = False) as section_5:
-        load_taskgroup = build_load_taskgroup(dag=dag)
+    # with TaskGroup("load", prefix_group_id = False) as section_5:
+    #     load_taskgroup = build_load_taskgroup(dag=dag)
 
-    section_0 >> section_1 >> section_2 >> section_3 >> section_4 >> section_5
+    start_daily >> section_1 >> dag_path >> [section_2, end_daily]
+    section_2 >> section_3 >> section_4 >> end_daily

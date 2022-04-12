@@ -105,7 +105,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         string_date = np.datetime_as_string(recent_date, unit='D')
-        print('Latest date:',string_date)
         return string_date
 
     ###########################
@@ -162,7 +161,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         if check_dwh:
             print("retrieve stocks")
             pulled_date = get_recent_date()
-            stock_df = update_stock_price(pulled_date, curr_date)
+            start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+            print(start_date)
+            stock_df = update_stock_price(start_date, curr_date)
         else:
             stock_df = initialise_stock_price('2018-01-01', curr_date)
         return stock_df
@@ -244,7 +245,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             col_names = ['end_of_day', 'eur_sgd', 'gbp_sgd', 'usd_sgd', 'aud_sgd', 'cad_sgd', 'cny_sgd_100',
             'hkd_sgd_100', 'inr_sgd_100', 'idr_sgd_100', 'jpy_sgd_100', 'krw_sgd_100', 'myr_sgd_100',
             'twd_sgd_100', 'nzd_sgd', 'php_sgd_100', 'qar_sgd_100', 'sar_sgd_100', 'chf_sgd', 'thb_sgd_100',
-            'aed_sgd_100', 'vnd_sgd_100']
+            'aed_sgd_100', 'vnd_sgd_100', 'preliminary', 'timestamp']
             ex_df = pd.DataFrame(columns=col_names)
             print("No new exchange rate data to collect")
         return ex_df
@@ -257,6 +258,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         else:
             ex_df = initialise_exchange_rate('2018-01-02')
         print(ex_df['end_of_day'])
+        print(ex_df)
         return ex_df
 
     # Function to scrape interest rate
@@ -311,9 +313,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 curr_old = curr_batch[index-1]['end_of_day']
 
         df = pd.DataFrame(ir_init_batch)
-        df = df[df['comp_sora_1m'].notna()]
-
-        print("Interest Rates Obtained")
+        df = df[df['sora'].notna()]
         return df
     
     def initialise_interest_rate(start_date):
@@ -330,10 +330,11 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("Obtained Daily Interest Rates (Update)")
         else:
             # Create empty dataframe
-            col_names = ['end_of_day', 'interbank_overnight', 'interbank_1w', 'interbank_1m', 'interbank_2m', ' interbank_3m',
+            col_names = ['end_of_day', 'interbank_overnight', 'interbank_1w', 'interbank_1m', 'interbank_2m', '_interbank_3m',
             'interbank_6m', 'interbank_12m', 'commercial_bills_3m', 'usd_sibor_3m', 'sgs_repo_overnight_rate', 'standing_facility_deposit',
             'rmb_overnight_rate', 'sora', 'sora_index', 'comp_sora_1m', 'comp_sora_3m', 'comp_sora_6m',
-            'aggregate_volume', 'highest_transaction', 'lowest_transaction', 'calculation_method']
+            'aggregate_volume', 'highest_transaction', 'lowest_transaction', 'calculation_method', 
+            'on_rmb_facility_rate','preliminary', 'published_date','sor_average','standing_facility_borrow','timestamp']
             int_df = pd.DataFrame(columns=col_names)
         return int_df
 
@@ -349,7 +350,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         new_batch = helper_retrieval(new_url, headers)
         df = pd.DataFrame(new_batch)
         df = df.head(1)
-        print(df)
         return df
         
     def interest_rate():
@@ -362,7 +362,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             t_lag_df = pull_older_interest_rate('2018-01-02')
             t_df = initialise_interest_rate('2018-01-02')
         int_df = t_df.append(t_lag_df, ignore_index = True)
-        print(int_df['end_of_day'])
+        
+        if len(int_df) == 1 & int_df['sora'].isna().values.any():
+            int_df = int_df.iloc[0:0]
         return int_df
 
     # Function to scrape gold prices
@@ -481,13 +483,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Start of DAG (to test)
-    start_init = BashOperator(
-        task_id = 'start_task',
-        bash_command = 'echo start',
-        dag = dag
-    )
 
-    start_init >> [stock_scraping, exchange_rate_scraping, interest_rate_scraping, gold_scraping, silver_scraping, crude_oil_scraping]
+    [stock_scraping, exchange_rate_scraping, interest_rate_scraping, gold_scraping, silver_scraping, crude_oil_scraping]
 
     return extract_taskgroup
