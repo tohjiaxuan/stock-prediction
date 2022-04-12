@@ -92,7 +92,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Historical Stock Prices to Cloud
     stock_cloud = PythonOperator(
         task_id = 'push_stock_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_stock_price,
         provide_context = True,
         dag = dag
@@ -101,7 +100,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Exchange Rates to Cloud
     exchange_cloud = PythonOperator(
         task_id = 'push_exchange_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_exchange_rate,
         provide_context = True,
         dag = dag
@@ -110,7 +108,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Interest Rates to Cloud
     interest_cloud = PythonOperator(
         task_id = 'push_interest_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_interest_rate,
         provide_context = True,
         dag = dag
@@ -119,7 +116,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Gold to Cloud
     gold_cloud = PythonOperator(
         task_id = 'push_gold_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_gold,
         provide_context = True,
         dag = dag
@@ -128,7 +124,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Silver to Cloud
     silver_cloud = PythonOperator(
         task_id = 'push_silver_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_silver,
         provide_context = True,
         dag = dag
@@ -137,7 +132,6 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Crude Oil to Cloud
     crude_oil_cloud = PythonOperator(
         task_id = 'push_crude_oil_cloud_data',
-        trigger_rule = 'none_failed',
         python_callable = push_crude_oil,
         provide_context = True,
         dag = dag

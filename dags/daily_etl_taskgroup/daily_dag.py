@@ -3,15 +3,11 @@ from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
-from airflow.operators.subdag import SubDagOperator
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import storage
-from pandas_datareader import data as pdr
 
 from airflow.utils.task_group import TaskGroup
 from extract_taskgroup import build_extract_taskgroup
