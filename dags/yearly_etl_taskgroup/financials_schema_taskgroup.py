@@ -68,12 +68,25 @@ def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup:
             schema = eval('ss.'+table_id)
             table_ref = dataset_ref.table(table_id)
             table = bigquery.Table(table_ref, schema=schema)
-            try:
-                table = client.create_table(table)
-            except exceptions.Conflict:
-                logging.info(f'Table not created. {table_id} already exists')
+            if table_id in ['D_INFLATION', 'D_FINANCIALS']:
+                try:
+                    table = client.create_table(table)
+                except exceptions.Conflict:
+                    logging.info(f'Table not created. {table_id} already exists')
+                else:
+                    logging.info(f'Created table {DWH_DATASET}.{table_id}')
             else:
-                logging.info(f'Created table {DWH_DATASET}.{table_id}')
+                try:
+                    table.time_partitioning = bigquery.TimePartitioning(
+                        type_=bigquery.TimePartitioningType.MONTH, # partition by month
+                        field='Date'  # name of column to use for partitioning
+                    )
+                    table = client.create_table(table)
+                except exceptions.Conflict:
+                    logging.info(f'Table not created. {table_id} already exists')
+                else:
+                    logging.info(f'Created table {DWH_DATASET}.{table_id}')
+
 
     create_tables = PythonOperator(
         task_id = 'create_tables',
