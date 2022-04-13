@@ -116,7 +116,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             
         sgx = list(tickers['New Symbol']) 
         stocks =[]
-
+        print("Retrieve stocks from:", start_date, "till ", end_date)
         # Loop to get all historical prices
         for ticker in sgx:
             print('Current Ticker is:', ticker)
@@ -152,6 +152,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def update_stock_price(start_date, end_date):
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
+        print(stock_df)
         print("Obtained Daily Stock Prices (Update)")
         return stock_df
     
@@ -161,6 +162,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("retrieve stocks")
             pulled_date = get_recent_date()
             start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+            print(start_date)
             stock_df = update_stock_price(start_date, curr_date)
         else:
             stock_df = initialise_stock_price('2018-01-01', curr_date)
@@ -255,8 +257,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             ex_df = update_exchange_rate(pulled_date)
         else:
             ex_df = initialise_exchange_rate('2018-01-02')
-        print(ex_df['end_of_day'])
-        print(ex_df)
         return ex_df
 
     # Function to scrape interest rate
@@ -347,7 +347,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         new_url = curr_link + date_url
         new_batch = helper_retrieval(new_url, headers)
         df = pd.DataFrame(new_batch)
-        df = df.head(1)
+
+        # Check if df.head(1) is same as pulled date
+        temp = df.head(1)
+        if (temp.iloc[0]['end_of_day'] == pulled_date):
+            df = df.iloc[[1]]
+        else:
+            df = temp
         return df
         
     def interest_rate():
@@ -363,6 +369,8 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         
         if len(int_df) == 1 & int_df['sora'].isna().values.any():
             int_df = int_df.iloc[0:0]
+        
+        int_df = int_df.drop_duplicates('end_of_day')
         return int_df
 
     # Function to scrape gold prices
