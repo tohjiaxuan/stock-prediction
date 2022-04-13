@@ -41,7 +41,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
     ############################
 
 
-    # Pull data from XCOMs for financials and push to cloud
+    # Pull extracted data from XCOMs and push to google cloud storage
 
     def push_netincome(ti):
         netincome = ti.xcom_pull(task_ids='income_scraping')
@@ -68,7 +68,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         inflation.to_parquet('gs://stock_prediction_is3107/inflation.parquet')
 
 
-    # Operator to push to cloud
+    # Operators to push to google cloud storage
     netincome_cloud = PythonOperator(
         task_id = 'netincome_cloud',
         python_callable = push_netincome,

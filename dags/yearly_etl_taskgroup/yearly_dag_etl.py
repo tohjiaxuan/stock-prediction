@@ -47,7 +47,7 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 default_args = {
      'owner': 'airflow',
      'depends_on_past': False,
-     'email': ['vickiyew@gmail.com'],
+     'email': ['vickiyew@gmail.com'], # add your own email here
      'email_on_failure': True,
      'email_on_retry': True,
      'retries': 1,
@@ -101,7 +101,7 @@ with DAG(
     default_args=default_args,
     catchup = False
 ) as dag:
-
+    
     start_yearly = BashOperator(
         task_id = 'start_yearly',
         bash_command = 'echo start',
@@ -134,9 +134,10 @@ with DAG(
         trigger_dag_id="daily_dag",
         dag=dag)
 
+    
     # importing the various taskgroups that make up the main yearly dag
     
-
+    
     with TaskGroup("postgres", prefix_group_id=False) as section_postgres:
         financials_postgres_taskgroup = build_financials_postgres_taskgroup(dag=dag)
     with TaskGroup("schema", prefix_group_id=False) as section_0:
@@ -157,8 +158,6 @@ with DAG(
     start_yearly >> section_0 >> dag_path >> [start_extract_task, end_yearly]
     start_extract_task >> section_1 >> section_2 >> section_3 >> section_4 >> section_postgres >> section_5 >> end_yearly >> trigger
     
-    
-  
 
     
    

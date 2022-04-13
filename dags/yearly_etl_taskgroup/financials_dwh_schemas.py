@@ -1,7 +1,5 @@
 from google.cloud.bigquery import SchemaField
 
-# schemas of each fact and dimension table
-
 tables = ['F_STOCKS', 'F_NEWS', 
         'D_COMMODITIES', 'D_EX_RATE', 'D_FINANCIALS', 'D_INFLATION', 'D_INT_RATE']
 
@@ -36,8 +34,7 @@ SchemaField('Source', 'STRING', 'NULLABLE', None, ()),
 SchemaField('Comments', 'STRING', 'NULLABLE', None, ())
 ]
 
-D_COMMODITIES = [SchemaField('COMM_ID', 'STRING', 'NULLABLE', None, ()),
-SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
+D_COMMODITIES = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
 SchemaField('Open', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('High', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('Low', 'FLOAT', 'NULLABLE', None, ()),
