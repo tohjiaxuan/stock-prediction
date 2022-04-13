@@ -140,7 +140,8 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         if (len(ex_df) < len(int_df)):
             int_df = int_df.iloc[1:]
         
-        lag_int = int_df.join(ex_df)         
+        lag_int = int_df.join(ex_df)
+        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'})         
         lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
     # Define python functions for commodities related items (gold, silver, crude oil)
@@ -177,18 +178,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
 
         return gold_stage_df, silver_stage_df, crude_oil_stage_df
 
-    """def query_commodities_table():
-        gold_query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.init_gold`"
-        gold_stage_df = bq_client.query(gold_query).to_dataframe()
-
-        silver_query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.init_silver`"
-        silver_stage_df = bq_client.query(silver_query).to_dataframe()
-
-        crude_oil_query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.init_crude_oil`"
-        crude_oil_stage_df = bq_client.query(crude_oil_query).to_dataframe()
-
-        return gold_stage_df, silver_stage_df, crude_oil_stage_df"""
-
     def consolidate_commodities(gold_df, silver_df, crude_oil_df): # - ADDED
         # Remove duplicates
         gold_df.drop_duplicates(inplace=True)
@@ -211,29 +200,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         final_df = final_df.sort_values(by = ['Date', 'Price Category'])
         final_df = final_df.reset_index(drop = True)
         return final_df
-
-    """def consolidate_commodities(gold_df, silver_df, crude_oil_df):
-        # Remove duplicates
-        gold_df.drop_duplicates(inplace=True)
-        silver_df.drop_duplicates(inplace=True)
-        crude_oil_df.drop_duplicates(inplace=True)
-
-        # Add Constant column for fact table later on
-        gold_df['Price Category'] = "Gold"
-        silver_df['Price Category'] = "Silver"
-        crude_oil_df['Price Category'] = "Crude Oil"
-
-        # Concatenate all rows
-        commodities = []
-        commodities.append(gold_df)
-        commodities.append(silver_df)
-        commodities.append(crude_oil_df)
-        final_df = pd.concat(commodities, ignore_index = True)
-
-        # Sort by date and price category
-        final_df = final_df.sort_values(by = ['Date', 'Price Category'])
-        final_df = final_df.reset_index(drop = True)
-        return final_df"""
 
     def transform_commodities():
         gold_df, silver_df, crude_oil_df = query_commodities_table()
@@ -295,9 +261,11 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         except(
             end_of_day, preliminary, timestamp,
             interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
-            interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate
+            interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate,
+            on_rmb_facility_rate
         ),
-        preliminary as int_rate_preliminary, timestamp as int_rate_timestamp
+        preliminary as int_rate_preliminary, timestamp as int_rate_timestamp,
+        CAST(on_rmb_facility_rate AS STRING) AS on_rmb_facility_rate,
         from `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates` as temp
         ''',
         dag = dag
