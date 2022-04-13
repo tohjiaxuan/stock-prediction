@@ -150,8 +150,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         print("Obtained Initialisation Stock Prices")
         return stock_df
 
-    def update_stock_price(pulled_date, end_date):
-        start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+    def update_stock_price(start_date, end_date):
         stock_df = helper_stock_price(tickers_df, start_date, end_date)
         print("Obtained Daily Stock Prices (Update)")
         return stock_df
@@ -162,7 +161,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("retrieve stocks")
             pulled_date = get_recent_date()
             start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
-            print(start_date)
             stock_df = update_stock_price(start_date, curr_date)
         else:
             stock_df = initialise_stock_price('2018-01-01', curr_date)

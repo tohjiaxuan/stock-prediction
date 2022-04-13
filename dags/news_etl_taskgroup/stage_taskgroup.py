@@ -19,17 +19,17 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
     stage_taskgroup = TaskGroup(group_id = "stage_taskgroup")
 
 
-    # Load yahoo finance from GCS to BQ
-    stage_yahoofinance = GCSToBigQueryOperator(
-        task_id = 'stage_yahoofinance',
-        bucket = 'stock_prediction_is3107',
-        source_objects = ['yahoofinance_news.parquet'],
-        destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.yahoofinance_news',
-        write_disposition='WRITE_TRUNCATE',
-        autodetect = True,
-        source_format = 'PARQUET',
-        dag = dag
-    )
+    # # Load yahoo finance from GCS to BQ
+    # stage_yahoofinance = GCSToBigQueryOperator(
+    #     task_id = 'stage_yahoofinance',
+    #     bucket = 'stock_prediction_is3107',
+    #     source_objects = ['yahoofinance_news.parquet'],
+    #     destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.yahoofinance_news',
+    #     write_disposition='WRITE_TRUNCATE',
+    #     autodetect = True,
+    #     source_format = 'PARQUET',
+    #     dag = dag
+    # )
 
     # Load sginvestor from GCS to BQ
     stage_sginvestor = GCSToBigQueryOperator(
@@ -55,30 +55,16 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # # Load business times from GCS to BQ
-    # stage_businesstimes = GCSToBigQueryOperator(
-    #     task_id = 'stage_businesstimes',
-    #     bucket = 'stock_prediction_is3107',
-    #     source_objects = ['businesstimes_news.parquet'],
-    #     destination_project_dataset_table = f'{PROJECT_ID}:{STAGING_DATASET}.businesstimes_news',
-    #     write_disposition='WRITE_TRUNCATE',
-    #     autodetect = True,
-    #     source_format = 'PARQUET',
-    #     dag = dag
-    # )
-
     start_staging = DummyOperator(
         task_id = 'start_staging',
         dag = dag
     )
 
-    end_staging = BashOperator(
+    end_staging = DummyOperator(
         task_id="end_staging",
-        bash_command="echo end_staging",
-        trigger_rule="all_done",
         dag=dag
     )
 
-    start_staging >> [stage_yahoofinance, stage_sginvestor, stage_sginvestor_blog] >> end_staging
+    start_staging >> [stage_sginvestor, stage_sginvestor_blog] >> end_staging
 # [stage_yahoofinance, stage_sginvestor, stage_sginvestor_blog, stage_businesstimes]
     return stage_taskgroup

@@ -38,6 +38,7 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
     financials_load_taskgroup = TaskGroup(group_id = 'financials_load_tg')
 
     ## LOAD INTO DATAWAREHOUSE
+
     
     # Load data into "Financials" Dimension table
     d_financials_table = BigQueryExecuteQueryOperator(
@@ -71,19 +72,12 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # signals that all tasks in this task group has succesfully ran.
-    end_loading = DummyOperator(
-        task_id = 'end_loading',
-        dag = dag
-    )
-
-    # kickstart pipeline
+    
     start_loading = DummyOperator(
-        task_id = 'start_loading',
-        trigger_rule = 'all_done', 
+        task_id = 'start_loading', 
         dag = dag
     )
-
-
-    start_loading >> [d_financials_table, d_inflation_table] >> end_loading
+    
+    
+    start_loading >> [d_financials_table, d_inflation_table]
     return financials_load_taskgroup

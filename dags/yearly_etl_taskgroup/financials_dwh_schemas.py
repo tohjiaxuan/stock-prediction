@@ -1,10 +1,9 @@
 from google.cloud.bigquery import SchemaField
 
-# schemas of each fact and dimension table
-
 tables = ['F_STOCKS', 'F_NEWS', 
         'D_COMMODITIES', 'D_EX_RATE', 'D_FINANCIALS', 'D_INFLATION', 'D_INT_RATE']
 
+# schemas of each fact and dimension table
 F_STOCKS = [SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
 SchemaField('Open', 'FLOAT', 'NULLABLE', None, ()),
 SchemaField('High', 'FLOAT', 'NULLABLE', None, ()),

@@ -40,9 +40,9 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
     #     table_id= TABLE_ID,
     #     project_id= PROJECT_ID,
     #     schema_fields=[
-    #         {"name": "Ticker", "type": "STRING", "mode": "REQUIRED"},
+    #         {"name": "Ticker", "type": "STRING", "mode": "NULLABLE"},
     #         {"name": "Title", "type": "STRING", "mode": "NULLABLE"},
-    #         {"name": "Date", "type": "DATE", "mode": "NULLABLE"},
+    #         {"name": "Date", "type": "TIMESTAMP", "mode": "NULLABLE"},
     #         {"name": "Link", "type": "STRING", "mode": "NULLABLE"},
     #         {"name": "Source", "type": "STRING", "mode": "NULLABLE"},
     #         {"name": "Comments", "type": "STRING", "mode": "NULLABLE"}
@@ -59,49 +59,42 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
     # )
 
 
-    INSERT_ROWS_QUERY = (
-    f"INSERT INTO {PROJECT_ID}.{DWH_DATASET}.{TABLE_ID} "
-    f"SELECT DISTINCT Ticker, Title, PARSE_DATE('%Y-%m-%d', Date) AS Date, * EXCEPT (Ticker, Title, Date) FROM {PROJECT_ID}.{STAGING_DATASET}.join_financial_news "
-    )
-
-    insert_f_news = BigQueryInsertJobOperator(
-        task_id='insert_f_news',
-        configuration={
-            "query": {
-                "query": INSERT_ROWS_QUERY,
-                "useLegacySql": False
-            }
-        }
-    )
-
-
-    # f_news_table = BigQueryExecuteQueryOperator(
-    #     task_id = 'f_news_table',
-    #     use_legacy_sql = False,
-    #     params = {
-    #         'project_id': PROJECT_ID,
-    #         'staging_dataset': STAGING_DATASET,
-    #         'dwh_dataset': DWH_DATASET
-    #     },
-    #     destination_dataset_table=f'{PROJECT_ID}:{DWH_DATASET}.F_news',
-    #     create_disposition="CREATE_IF_NEEDED",
-    #     write_disposition="WRITE_APPEND",
-    #     sql = './sql/F_news.sql',
-    #     dag = dag
+    # INSERT_ROWS_QUERY = (
+    # f"INSERT INTO {PROJECT_ID}.{DWH_DATASET}.{TABLE_ID} "
+    # f"SELECT DISTINCT Ticker, Title, PARSE_DATE('%Y-%m-%d', Date) AS Date, * EXCEPT (Ticker, Title, Date) FROM {PROJECT_ID}.{STAGING_DATASET}.join_financial_news "
     # )
+
+    # insert_f_news = BigQueryInsertJobOperator(
+    #     task_id='insert_f_news',
+    #     configuration={
+    #         "query": {
+    #             "query": INSERT_ROWS_QUERY,
+    #             "useLegacySql": False
+    #         }
+    #     }
+    # )
+
+
+    f_news_table = BigQueryExecuteQueryOperator(
+        task_id = 'f_news_table',
+        use_legacy_sql = False,
+        params = {
+            'project_id': PROJECT_ID,
+            'staging_dataset': STAGING_DATASET,
+            'dwh_dataset': DWH_DATASET
+        },
+        destination_dataset_table=f'{PROJECT_ID}:{DWH_DATASET}.F_NEWS',
+        create_disposition="CREATE_IF_NEEDED",
+        write_disposition="WRITE_APPEND",
+        sql = './sql/F_news.sql',
+        dag = dag
+    )
 
     start_loading = DummyOperator(
         task_id = 'start_loading',
         dag = dag
     )
 
-    end_loading = BashOperator(
-        task_id="end_loading",
-        bash_command="echo end_loading",
-        trigger_rule="all_done",
-        dag=dag
-    )
-
-    start_loading >> insert_f_news >> end_loading
+    start_loading >> f_news_table 
 
     return load_taskgroup

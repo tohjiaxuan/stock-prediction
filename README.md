@@ -1,8 +1,13 @@
 # Creation of DATA WAREHOUSE on BigQuery for Stock Analysis (Prediction) & Sentiment Analysis
 
-# Changes to Airflow Configuration
+# General Configurations needed
 1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
 
+2. In the Airflow webserver, head to `Admin` > `Connections`. 
+
+a. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
+
+b. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
 
 # Steps to configure the sending of emails on task failure
 ### Generate Google App password: 
@@ -36,9 +41,9 @@ b. Change SqlAlchemy connection: replace with `sql_alchemy_conn = postgresql+psy
 
 ### Run the following commands within the terminal:
 
-Note: you will first be prompted to create a new user. Create a new user with your own credentials. 
+Note: you will first be prompted to create a new user. Create a new user with your own credentials. Do make sure your `postgres_local` Conn Id is still present. Otherwise, recreate that Conn Id. 
 
-a. Run `airflow init db`
+a. Run `airflow db init`
 
 b. Re-run the airflow webserver and scheduler. 
 

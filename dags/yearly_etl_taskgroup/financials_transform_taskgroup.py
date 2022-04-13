@@ -238,7 +238,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Reformat financials_with_ratios table to format: ID (key) | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
+    # Reformat financials_with_ratios table to format: ID (Key) | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
     # Add a unique identifier ID to this table too (i.e. column ID)
     reformat_financial_ratios = BigQueryOperator(
         task_id = 'reformat_financial_ratios',
@@ -395,7 +395,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Reformat financials_with_ratios_yearly table to format: ID (key)| Year | Type (e.g. netincome, assets, roa or roe etc) | Value
+    # Reformat financials_with_ratios_yearly table to format: ID (Key) | Year | Type (e.g. netincome, assets, roa or roe etc) | Value
     reformat_financial_ratios_yearly = BigQueryOperator(
         task_id = 'reformat_financial_ratios_yearly',
         use_legacy_sql = False,
@@ -435,7 +435,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     end_transformation = BashOperator(
         task_id="end_transformation",
         bash_command="echo end_transformation",
-        trigger_rule="all_done",
+        trigger_rule="one_success",
         dag=dag
     )
 
@@ -453,6 +453,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
     )
 
     '''
+    
 
     start_transformation >> inflation_key >> check_financials_choose_transform_path
     check_financials_choose_transform_path >> [init_transformation_financials, yearly_transformation_financials]

@@ -38,17 +38,18 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     financials_extract_taskgroup = TaskGroup(group_id = 'financials_extract_tg')
 
     # LOAD TICKERS
+    # tickers_df wil be global
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
 
     # GLOBAL HELPER FUNCTIONS
-    # These are universal helper function applicable to scraping of all financial data
+    # Universal helper function applicable to scraping of all financial data
     def cond(x):
         if x.startswith("hide"):
             return False
         else:
             return True
 
-
+    # Universal helper function applicable to scraping of all financial data
     def replace_dash(list_needed):
         return ['0' if item == '-' else item for item in list_needed]
 
@@ -154,7 +155,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     #################################
 
     # Scraping the up-to-date data
-
     # Helper function for scraping of net income
     def table_content_income_yearly(ticker, table, df, col_names):
         table_body = table.find('tbody')
@@ -309,7 +309,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
 
-        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.   
         df_assets.drop('Year2021', inplace=True, axis=1)
         df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_assets[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
         
@@ -339,7 +339,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.   
         df_liab.drop('Year2021', inplace=True, axis=1)
         df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_liab[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float) 
         
@@ -368,7 +368,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 #print("No data available for: ", i)
                 #print("---")
         
-        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data. 
+        # Remove 2021 from the Initialisation code so that we can simulate the scraping of up-to-date data using 2021's data.  
         df_eq.drop('Year2021', inplace=True, axis=1)
         df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_eq[['Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
     
@@ -613,20 +613,6 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Define Airflow Operators #
     ############################
 
-    # kickstart pipeline
-    start_pipeline = DummyOperator(
-        task_id = 'start_pipeline',
-        dag = dag
-    )
-
-    # signals the end of current task group's tasks
-    prep_gcs = BashOperator(
-        task_id="prep_gcs",
-        bash_command="echo prep_gcs",
-        trigger_rule="all_done",
-        dag=dag
-    )
-
 
     ############################
     # Checking conditions      #
@@ -668,7 +654,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     ############################
 
     # If tables in datawarehouse are empty, this means that the initialisation (historical) data has not been populated. 
-    # In other words, the initialisation task has not been carried out. 
+    # In other words, the initialisation task (i.e. scraping of historical data) has not been carried out. 
     # In this case, if the tables in the datawarehouse are empty, scrape initialisation (historical) data. 
     # Otherwise, scrape yearly up-to-date data. 
 
@@ -771,8 +757,8 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
     
     # TASK DEPENDENCIES
 
-    start_pipeline >> [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping]
-    [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping] >> prep_gcs
+    [income_scraping, assets_scraping, liab_scraping, equity_scraping, dividends_scraping, inflation_scraping]
+
 
     
     return financials_extract_taskgroup
