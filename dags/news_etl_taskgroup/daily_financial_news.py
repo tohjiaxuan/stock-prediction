@@ -39,7 +39,7 @@ curr_date = datetime.today().strftime('%Y-%m-%d')
 default_args = {
     'owner': 'Nicole',
     'depends_on_past': False,
-    'email': ['charlottesihan@gmail.com'],
+    'email': [''],
     'email_on_failure': True,
     'email_on_retry': True,
     'retries': 1, 
@@ -50,13 +50,8 @@ default_args = {
 def check_news(**kwargs):
     sginvestor = kwargs['task_instance'].xcom_pull(task_ids='sginvestor_scraping')
     sginvestor_blog = kwargs['task_instance'].xcom_pull(task_ids='sginvestor_blog_scraping')
-    # sginvestor = ti.xcom_pull(task_ids='sginvestor_scraping')
-    print('sginvestor', sginvestor)
-    print(len(sginvestor))
-    # sginvestor_blog = ti.xcom_pull(task_ids='sginvestor_blog_scraping')
-    print('sginvestor_blog', sginvestor_blog)
-    print(len(sginvestor_blog))
-    if sginvestor.empty and sginvestor_blog.empty:
+    yahoofinance = kwargs['task_instance'].xcom_pull(task_ids='yahoofinance_scraping')
+    if sginvestor.empty and sginvestor_blog.empty and yahoofinance.empty:
         return 'end_task'
     return 'start_gcs_task'
 
@@ -109,10 +104,7 @@ with DAG(
         dag = dag
     )
 
-
     start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
     start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
-        # start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
-    
+    # start_daily >> section_1 >> start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
 
-    # section_1 >> section_2 >> section_3 >> section_4 >> section_5

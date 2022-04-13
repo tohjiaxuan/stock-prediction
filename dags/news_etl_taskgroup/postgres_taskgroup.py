@@ -27,23 +27,23 @@ def build_postgres_taskgroup(dag: DAG) -> TaskGroup:
         hook = PostgresHook(postgres_conn_id="postgres_local")
         hook.run(query)
 
-    # def insert_yahoofinance_table(ti):
-    #     yahoofinance_df = ti.xcom_pull(task_ids='yahoofinance_scraping')
-    #     df_final = yahoofinance_df
-    #     print(df_final)
-    #     for result in range(len(df_final)):
-    #         row = df_final.loc[result,:]
-    #         print('this is row')
-    #         print(row)
-    #         print('this is query')
+    def insert_yahoofinance_table(ti):
+        yahoofinance_df = ti.xcom_pull(task_ids='yahoofinance_scraping')
+        df_final = yahoofinance_df
+        print(df_final)
+        for result in range(len(df_final)):
+            row = df_final.loc[result,:]
+            print('this is row')
+            print(row)
+            print('this is query')
 
-    #         query = f'''    
-    #         INSERT INTO financial_news (Ticker, Title, Date, Link, Source, Comments)
-    #         VALUES ('{row["Ticker"]}', '{row["Title"]}', '{row["Date"]}', '{row["Link"]}', '{row["Source"]}', '{row["Comments"]}');
-    #         '''
+            query = f'''    
+            INSERT INTO financial_news (Ticker, Title, Date, Link, Source, Comments)
+            VALUES ('{row["Ticker"]}', '{row["Title"]}', '{row["Date"]}', '{row["Link"]}', '{row["Source"]}', '{row["Comments"]}');
+            '''
   
-    #         print(query)
-    #         execute_query_with_hook(query)
+            print(query)
+            execute_query_with_hook(query)
 
 
     def insert_sginvestor_table(ti):
@@ -119,11 +119,11 @@ def build_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag  
     )
 
-    # insert_yahoofinance_table = PythonOperator(
-    #     task_id = 'insert_yahoofinance_table',
-    #     python_callable = insert_yahoofinance_table,
-    #     dag = dag  
-    # )
+    insert_yahoofinance_table = PythonOperator(
+        task_id = 'insert_yahoofinance_table',
+        python_callable = insert_yahoofinance_table,
+        dag = dag  
+    )
 
     start_postgres = DummyOperator(
         task_id = 'start_postgres',
@@ -142,7 +142,7 @@ def build_postgres_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = financial_news_bigquery
     )
 
-    start_postgres >> create_table_financial_news >> [insert_sginvestor_table, insert_sginvestor_blog_table] >> financial_news_bigquery >> end_postgres
+    start_postgres >> create_table_financial_news >> [insert_yahoofinance_table, insert_sginvestor_table, insert_sginvestor_blog_table] >> financial_news_bigquery >> end_postgres
     return postgres_taskgroup
 
 

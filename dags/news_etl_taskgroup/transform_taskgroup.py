@@ -11,6 +11,7 @@ from google.cloud.exceptions import NotFound
 from airflow.utils.task_group import TaskGroup
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.exceptions import AirflowException
 
 import json
 import os
@@ -34,9 +35,11 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     sql = f'''
             create or replace table `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news` as 
             select distinct * from 
-            (select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+            (select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as timestamp) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_news` union distinct
-            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as string) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as timestamp) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
+                from `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news` union distinct
+            select cast(ticker as string) as Ticker, cast(title as string) as Title, cast(date as timestamp) as Date, cast(link as string) as Link, cast(source as string) as Source, cast(comments as string) as Comments
                 from `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` 
             ) temp
     ''',
@@ -52,6 +55,15 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id="end_transformation",
         dag=dag
     )
+  
+    # def force_fail():
+    #     raise AirflowException("This error is to test the Postgres task!")
+    # # for testing purposes: insert this task after end_transformation, i.e. end_transformation >> force_fail
+    # force_fail = PythonOperator(
+    #     task_id = 'force_fail',
+    #     python_callable = force_fail
+    # )
+
 
     start_transformation >> join_financial_news >> end_transformation
 
