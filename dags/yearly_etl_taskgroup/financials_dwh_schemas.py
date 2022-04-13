@@ -29,7 +29,7 @@ SchemaField('INFL_ID', 'STRING', 'NULLABLE', None, ())
 
 F_NEWS = [SchemaField('Ticker', 'STRING', 'NULLABLE', None, ()),
 SchemaField('Title', 'STRING', 'NULLABLE', None, ()),
-SchemaField('Date', 'DATE', 'NULLABLE', None, ()),
+SchemaField('Date', 'TIMESTAMP', 'NULLABLE', None, ()),
 SchemaField('Link', 'STRING', 'NULLABLE', None, ()),
 SchemaField('Source', 'STRING', 'NULLABLE', None, ()),
 SchemaField('Comments', 'STRING', 'NULLABLE', None, ())
