@@ -42,7 +42,7 @@ default_args = {
     'email': [''],
     'email_on_failure': True,
     'email_on_retry': True,
-    'retries': 1, 
+    'retries': 3, 
     'retry_delay': timedelta(minutes=2),
     'start_date': datetime(2022, 3, 15)
 }
