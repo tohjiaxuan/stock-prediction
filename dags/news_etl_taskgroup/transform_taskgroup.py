@@ -45,14 +45,4 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     dag = dag
     )
 
-    # start_transformation = DummyOperator(
-    #     task_id = 'start_transformation',
-    #     dag = dag
-    # )
-
-    # end_transformation = DummyOperator(
-    #     task_id="end_transformation",
-    #     dag=dag
-    # )
-
     return transform_taskgroup

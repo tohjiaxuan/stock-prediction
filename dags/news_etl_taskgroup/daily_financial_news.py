@@ -33,8 +33,6 @@ STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
 
-curr_date = datetime.today().strftime('%Y-%m-%d')
-
 # Add retry_delay later on when pipeline is up
 default_args = {
     'owner': 'Nicole',

@@ -18,7 +18,7 @@ PROJECT_ID = 'stockprediction-344203'
 def build_stage_taskgroup(dag: DAG) -> TaskGroup:
     stage_taskgroup = TaskGroup(group_id = "stage_taskgroup")
 
-    # Load yahoo finance from GCS to BQ
+    # Load data from GCS to BQ
     stage_yahoofinance = GCSToBigQueryOperator(
         task_id = 'stage_yahoofinance',
         bucket = 'stock_prediction_is3107',
@@ -30,7 +30,6 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Load sginvestor from GCS to BQ
     stage_sginvestor = GCSToBigQueryOperator(
         task_id = 'stage_sginvestor',
         bucket = 'stock_prediction_is3107',
@@ -42,7 +41,6 @@ def build_stage_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    # Load sginvestor blog from GCS to BQ
     stage_sginvestor_blog = GCSToBigQueryOperator(
         task_id = 'stage_sginvestor_blog',
         bucket = 'stock_prediction_is3107',

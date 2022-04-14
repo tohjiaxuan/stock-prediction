@@ -30,56 +30,35 @@ def build_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_yahoofinance_table(ti):
         yahoofinance_df = ti.xcom_pull(task_ids='yahoofinance_scraping')
         df_final = yahoofinance_df
-        print(df_final)
         for result in range(len(df_final)):
             row = df_final.loc[result,:]
-            print('this is row')
-            print(row)
-            print('this is query')
-
             query = f'''    
             INSERT INTO financial_news (Ticker, Title, Date, Link, Source, Comments)
             VALUES ('{row["Ticker"]}', '{row["Title"]}', '{row["Date"]}', '{row["Link"]}', '{row["Source"]}', '{row["Comments"]}');
             '''
-  
-            print(query)
             execute_query_with_hook(query)
 
 
     def insert_sginvestor_table(ti):
         sginvestor_df = ti.xcom_pull(task_ids='sginvestor_scraping')
         df_final = sginvestor_df
-        # print('sginvestor_df', type(sginvestor_df))
-        # print('sginvestor_df.values', type(sginvestor_df.values))
-        print(df_final)
         for result in range(len(df_final)):
             row = df_final.loc[result,:]
-            print('this is row')
-            print(row)
-            print('this is query')
-
             query = f'''    
             INSERT INTO financial_news (Ticker, Title, Date, Link, Source, Comments)
             VALUES ('{row["Ticker"]}', '{row["Title"]}', '{row["Date"]}', '{row["Link"]}', '{row["Source"]}', '{row["Comments"]}');
             '''
-            print(query)
             execute_query_with_hook(query)
 
     def insert_sginvestor_blog_table(ti):
         sginvestor_blog_df = ti.xcom_pull(task_ids='sginvestor_blog_scraping')
         df_final = sginvestor_blog_df
-
-        print(df_final)
         for result in range(len(df_final)):
             row = df_final.loc[result,:]
-            print('this is row')
-            print(row)
-            print('this is query')
             query = f'''    
             INSERT INTO financial_news (Ticker, Title, Date, Link, Source, Comments)
             VALUES ('{row["Ticker"]}', '{row["Title"]}', '{row["Date"]}', '{row["Link"]}', '{row["Source"]}', '{row["Comments"]}');
             '''
-            print(query)
             execute_query_with_hook(query)
 
 
@@ -101,7 +80,7 @@ def build_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
 
-    # dataframe to bq
+    # transform dataframe to bq
     def financial_news_bigquery():
         hook = PostgresHook(postgres_conn_id='postgres_local')
         df = hook.get_pandas_df(sql='select Ticker, Title, Date, Link, Source, Comments from financial_news;')

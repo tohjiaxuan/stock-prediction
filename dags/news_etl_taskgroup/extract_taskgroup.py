@@ -80,8 +80,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         date = int(t.split(' ')[0])
                         last_update = current_time + relativedelta(years=-date)
                 else:
-                    last_update = t # will need to double check
-                    print('check', t)
+                    last_update = t 
                     
                 last_update = last_update.strftime('%Y-%m-%d') 
                 cleaned_time.append(last_update)
@@ -100,7 +99,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     def clean_date(date):
         date = date.strip('(edited) ')
         current_time = datetime.today()
-
         if 'minute' in date:
             date = current_time - timedelta(minutes=int(date.split(' ')[0]))
         elif 'hour' in date:
@@ -203,7 +201,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
         print('scrape successfully')
         driver.quit()
-
         df_final = clean_df(df_final)
 
         # remove row if it is ad
@@ -212,7 +209,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final['Source'] = 'Yahoo Finance News'
         df_final['Comments'] = ''
         df_final.reset_index(drop=True, inplace = True) 
-
         return df_final
 
     def yahoofinance_scraping_data_daily(pulled_date):
@@ -567,21 +563,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Airflow Operators    #
     ########################
 
-    # Scraping yahoo finance news 
     yahoofinance_scraping = PythonOperator(
         task_id = 'yahoofinance_scraping',
         python_callable = scrape_yahoofinance,
         dag = dag
     )
 
-    # Scraping sg investor news 
     sginvestor_scraping = PythonOperator(
         task_id = 'sginvestor_scraping',
         python_callable = scrape_sginvestor,
         dag = dag
     )
 
-    # Scraping sg investor blog news 
     sginvestor_blog_scraping = PythonOperator(
         task_id = 'sginvestor_blog_scraping',
         python_callable = scrape_sginvestor_blog,
@@ -600,7 +593,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         dag=dag
     )
 
-    # TASK DEPENDENCIES
     start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
     return extract_taskgroup
 
