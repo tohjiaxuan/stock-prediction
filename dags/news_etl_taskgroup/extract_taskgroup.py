@@ -526,7 +526,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_NEWS`"
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
-        string_date = datetime.strptime(recent_date, '%Y-%m-%d').strftime('%Y-%m-%d')
+        string_date = np.datetime_as_string(recent_date, unit='D')
         print('string_date', string_date)
         return string_date
 
@@ -552,7 +552,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             print("Scrape sginvestor init")
         return sginvestor_df
 
-    
     def scrape_sginvestor_blog():
         check_dwh = if_f_news_exists()
         if check_dwh:
@@ -598,7 +597,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     prep_gcs = BashOperator(
         task_id="prep_gcs",
         bash_command="echo prep_gcs",
-        # trigger_rule="all_done",
         dag=dag
     )
 

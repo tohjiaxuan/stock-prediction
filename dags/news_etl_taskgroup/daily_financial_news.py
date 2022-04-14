@@ -55,7 +55,6 @@ def check_news(**kwargs):
         return 'end_task'
     return 'start_gcs_task'
 
-
 with DAG(
     dag_id="daily_financial_news",
     schedule_interval="@daily",
@@ -106,5 +105,4 @@ with DAG(
 
     start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
     start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
-    # start_daily >> section_1 >> start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
 

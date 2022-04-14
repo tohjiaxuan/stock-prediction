@@ -42,9 +42,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
     # Push Yahoo Finance to Cloud
     yahoofinance_cloud = PythonOperator(
         task_id = 'yahoofinance_cloud',
-        trigger_rule = 'none_failed',
         python_callable = push_yahoofinance_news,
-        provide_context = True,
         dag = dag
     )
 
