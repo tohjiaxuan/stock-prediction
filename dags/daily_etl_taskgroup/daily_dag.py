@@ -15,6 +15,7 @@ from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
 from load_taskgroup import build_load_taskgroup
+from postgres_processing_daily import build_daily_postgres_taskgroup
 
 import json
 import os
@@ -96,7 +97,8 @@ with DAG(
         transform_taskgroup = build_transform_taskgroup(dag=dag)
     with TaskGroup("load", prefix_group_id = False) as section_5:
         load_taskgroup = build_load_taskgroup(dag=dag)
-
+    with TaskGroup("dailypostgres", prefix_group_id = False) as section_postgres:
+        daily_postgres_taskgroup = build_daily_postgres_taskgroup(dag=dag)
     start_gcs = BashOperator(
         task_id = 'start_gcs_task',
         bash_command = 'echo start',
@@ -104,4 +106,4 @@ with DAG(
     )
 
     start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
-    start_gcs >> section_2 >> section_3 >> section_4 >> section_5 >> end_daily
+    start_gcs >> section_2 >> section_3 >> section_4 >> section_postgres >> section_5 >> end_daily
