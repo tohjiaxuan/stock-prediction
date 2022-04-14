@@ -25,7 +25,6 @@ STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
 
-
 def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     transform_taskgroup = TaskGroup(group_id = 'transform_taskgroup')
 
@@ -46,25 +45,14 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     dag = dag
     )
 
-    start_transformation = DummyOperator(
-        task_id = 'start_transformation',
-        dag = dag
-    )
-
-    end_transformation = DummyOperator(
-        task_id="end_transformation",
-        dag=dag
-    )
-  
-    # def force_fail():
-    #     raise AirflowException("This error is to test the Postgres task!")
-    # # for testing purposes: insert this task after end_transformation, i.e. end_transformation >> force_fail
-    # force_fail = PythonOperator(
-    #     task_id = 'force_fail',
-    #     python_callable = force_fail
+    # start_transformation = DummyOperator(
+    #     task_id = 'start_transformation',
+    #     dag = dag
     # )
 
-
-    start_transformation >> join_financial_news >> end_transformation
+    # end_transformation = DummyOperator(
+    #     task_id="end_transformation",
+    #     dag=dag
+    # )
 
     return transform_taskgroup

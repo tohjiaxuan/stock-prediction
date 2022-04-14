@@ -39,15 +39,14 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    start_loading = DummyOperator(
-        task_id = 'start_loading',
-        dag = dag
-    )
+    # start_loading = DummyOperator(
+    #     task_id = 'start_loading',
+    #     dag = dag
+    # )
     
-    end_loading = DummyOperator(
-        task_id = 'end_loading',
-        dag = dag
-    )
+    # end_loading = DummyOperator(
+    #     task_id = 'end_loading',
+    #     dag = dag
+    # )
 
-    start_loading >> f_news_table >> end_loading
     return load_taskgroup

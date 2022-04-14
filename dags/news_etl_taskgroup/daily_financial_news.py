@@ -42,7 +42,7 @@ default_args = {
     'email': [''],
     'email_on_failure': True,
     'email_on_retry': True,
-    'retries': 1, 
+    'retries': 3, 
     'retry_delay': timedelta(minutes=2),
     'start_date': datetime(2022, 3, 15)
 }
@@ -54,7 +54,6 @@ def check_news(**kwargs):
     if sginvestor.empty and sginvestor_blog.empty and yahoofinance.empty:
         return 'end_task'
     return 'start_gcs_task'
-
 
 with DAG(
     dag_id="daily_financial_news",
@@ -106,5 +105,4 @@ with DAG(
 
     start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
     start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
-    # start_daily >> section_1 >> start_gcs >> section_2 >> section_3 >> section_4 >> postgres >> section_5 >> end_daily
 
