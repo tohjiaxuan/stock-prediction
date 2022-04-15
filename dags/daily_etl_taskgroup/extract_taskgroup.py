@@ -3,12 +3,13 @@ from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
+from airflow.utils.task_group import TaskGroup
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from google.cloud import storage
 from google.cloud import bigquery
+import logging
 from pandas_datareader import data as pdr
-from airflow.utils.task_group import TaskGroup
 
 import json
 import os
@@ -19,25 +20,29 @@ import requests
 import urllib.request
 import yfinance as yf 
 
-
 yf.pdr_override()
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.109 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
-storage_client = storage.Client()
-bq_client = bigquery.Client()
-bucket = storage_client.get_bucket('stock_prediction_is3107')
-STAGING_DATASET = 'stock_prediction_staging_dataset'
-PROJECT_ID = 'stockprediction-344203'
-DWH_DATASET = 'stock_prediction_datawarehouse'
 
 def build_extract_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for extraction of data from various sources
+
+    Parameters
+    ----------
+    dag: An airflow DAG
+
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
-
+    
+    # Obtain current day
     curr_date = datetime.today().strftime('%Y-%m-%d')
-
 
     # Load tickers that will be used
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
@@ -46,14 +51,41 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Define Python Functions  #
     ############################
     def helper_retrieval(link, headers):
+        """Helper function to obtain records from MAS
+
+        Parameters
+        ----------
+        link: String
+            The URL of the website 
+        
+        headers: Dictionary
+            Dictionary of required elements for BS to be used
+
+        Returns
+        -------
+        List of dictionaries
+            Information required from JSON file
+        """
         req = urllib.request.Request(link, None, headers)
         response = urllib.request.urlopen(req)
         data = response.read()
-        raw_data = json.loads(data.decode())
+        raw_data = json.loads(data.decode()) # Need to decode to get values
         batch = raw_data['result']['records']
         return batch
     
     def helper_latest_retrieval(website_link):
+        """Helper function to obtain latest date of record in MAS
+
+        Parameters
+        ----------
+        website_link: String
+            The URL of the website 
+
+        Returns
+        -------
+        Datetime
+            Date of most recent record stored on MAS website
+        """
         latest_retrival = helper_retrieval(website_link, headers)
         latest_mas_date = latest_retrival[0]['end_of_day']
         latest_mas_date = datetime.strptime(latest_mas_date, '%Y-%m-%d')
@@ -63,11 +95,19 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Check DWH #
     #############
     
-    # Check DWH for stock prices related items (stock prices, exchange rate, interest rate)
     def if_f_stock_exists():
+        """Check if Stocks Fact Table is present in DWHS
+
+        Returns
+        -------
+        Boolean
+        """
         try:
+            # Establish connection with BigQuery 
             bq_client = bigquery.Client()
             query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+
+            # Convert queried result to df
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
@@ -78,6 +118,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             return False
 
     def get_recent_date():
+        """Get the most recent date present in Stocks Fact Table
+
+        Returns
+        -------
+        String
+            The most recent date present in DWH, inform users to extract data after that date
+        """
+        # Establish connection with bigquery
         bq_client = bigquery.Client()
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`"
         df = bq_client.query(query).to_dataframe()
@@ -85,8 +133,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         string_date = np.datetime_as_string(recent_date, unit='D')
         return string_date
 
-    # Check DWH for commodities related items (gold, silver, crude oil)
     def if_d_commodities_exists():
+        """Check if Commodities Dimension Table is present in DWHS
+
+        Returns
+        -------
+        Boolean
+        """
         try:
             bq_client = bigquery.Client()
             query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
@@ -100,6 +153,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             return False
 
     def get_recent_commodities_date():
+        """Get the most recent date present in Commodities Dimension Table
+
+        Returns
+        -------
+        String
+            The most recent date present in DWH, inform users to extract data after that date
+        """
         bq_client = bigquery.Client()
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`"
         df = bq_client.query(query).to_dataframe()
@@ -113,7 +173,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     # Function to obtain yfinance historial prices
 
     def helper_stock_price(tickers, start_date, end_date):
-            
+        """Get the most recent date present in Commodities Dimension Table
+
+        Returns
+        -------
+        String
+            The most recent date present in DWH, inform users to extract data after that date
+        """
         sgx = list(tickers['New Symbol']) 
         stocks =[]
         print("Retrieve stocks from:", start_date, "till ", end_date)

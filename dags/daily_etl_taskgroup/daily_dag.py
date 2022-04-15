@@ -21,90 +21,90 @@ import json
 import os
 import numpy as np
 import pandas as pd
-import pandas_ta as ta
-import requests
-import urllib.request
-import yfinance as yf 
 
-yf.pdr_override()
-
-headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.109 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'}
-
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
-storage_client = storage.Client()
-bucket = storage_client.get_bucket('stock_prediction_is3107')
-STAGING_DATASET = 'stock_prediction_staging_dataset'
-PROJECT_ID = 'stockprediction-344203'
-DWH_DATASET = 'stock_prediction_datawarehouse'
-
-curr_date = datetime.today().strftime('%Y-%m-%d')
-
-# Add retry_delay later on when pipeline is up
+# Define arguments for the DAG
 default_args = {
-    'owner': 'airflow',
-    'depends_on_past': False,
-    'email': ['jxtoh99@gmail.com'], # add your own email here
-    'email_on_failure': True,
-    'email_on_retry': True,
-    'retries': 2, 
-    'retry_delay': timedelta(minutes=10),
-    'start_date': datetime(2022, 3, 15)
+    "owner": "airflow",
+    "depends_on_past": False,
+    "email": ["jxtoh99@gmail.com"],  # Can change to the user of choice
+    "email_on_failure": True,
+    "email_on_retry": True,
+    "retries": 2,
+    "retry_delay": timedelta(minutes=10),
+    "start_date": datetime(2022, 3, 15),  # Change this date when first initialised
 }
 
+
 def check_stocks(**kwargs):
-    df = kwargs['task_instance'].xcom_pull(task_ids='stock_scraping_data')
+    """Checks if there is any new stock data available
+
+    Parameters
+    ----------
+    **kwargs: pass any keyword argumenst
+
+    Returns
+    -------
+    taskid
+        Tells the DAG which path to take
+    """
+    df = kwargs["task_instance"].xcom_pull(task_ids="stock_scraping_data")
     if df.empty:
-        return 'end_task'
-    return 'start_gcs_task'
+        return "end_task"
+    return "start_gcs_task"
+
 
 with DAG(
     dag_id="daily_dag",
     schedule_interval=None,
-    description = 'DAG for creation of data warehouse (Daily)',
+    description="DAG for creation of data warehouse (Daily)",
     default_args=default_args,
-    catchup = False
+    catchup=False,
 ) as dag:
-    
+
+    # Signifies the start of the daily DAG
     start_daily = BashOperator(
-        task_id = 'start_task',
-        bash_command = 'echo start',
-        dag = dag
+        task_id="start_task",
+        bash_command="echo start",
+        dag=dag
     )
 
+    # Signifies the end of daily DAG
     end_daily = BashOperator(
-        task_id = 'end_task',
-        bash_command = 'echo end',
-        trigger_rule = 'none_failed',
-        dag = dag
+        task_id="end_task",
+        bash_command="echo end",
+        trigger_rule="none_failed", 
+        dag=dag
     )
 
+    # Chooses the path for the DAG to run
     dag_path = BranchPythonOperator(
-        task_id = 'dag_path_task',
-        python_callable = check_stocks,
-        do_xcom_push = False,
-        provide_context = True,
-        dag = dag
+        task_id="dag_path_task",
+        python_callable=check_stocks,
+        do_xcom_push=False,
+        provide_context=True,
+        dag=dag,
     )
 
-    with TaskGroup("extract", prefix_group_id = False) as section_1:
+    with TaskGroup("extract", prefix_group_id=False) as section_1:
         extract_taskgroup = build_extract_taskgroup(dag=dag)
-    with TaskGroup("gcs", prefix_group_id = False) as section_2:
+    with TaskGroup("gcs", prefix_group_id=False) as section_2:
         gcs_taskgroup = build_gcs_taskgroup(dag=dag)
-    with TaskGroup("stage", prefix_group_id = False) as section_3:
+    with TaskGroup("stage", prefix_group_id=False) as section_3:
         stage_taskgroup = build_stage_taskgroup(dag=dag)
-    with TaskGroup("transform", prefix_group_id = False) as section_4:
+    with TaskGroup("transform", prefix_group_id=False) as section_4:
         transform_taskgroup = build_transform_taskgroup(dag=dag)
-    with TaskGroup("dailypostgres", prefix_group_id = False) as section_postgres:
+    with TaskGroup("dailypostgres", prefix_group_id=False) as section_postgres:
         daily_postgres_taskgroup = build_daily_postgres_taskgroup(dag=dag)
-    with TaskGroup("load", prefix_group_id = False) as section_5:
+    with TaskGroup("load", prefix_group_id=False) as section_5:
         load_taskgroup = build_load_taskgroup(dag=dag)
 
+    # Echos the start of interactions with cloud
     start_gcs = BashOperator(
-        task_id = 'start_gcs_task',
-        bash_command = 'echo start',
-        dag = dag
+        task_id="start_gcs_task",
+        bash_command="echo start",
+        dag=dag
     )
 
+    # Task hierarchy 
     start_daily >> section_1 >> dag_path >> [start_gcs, end_daily]
     start_gcs >> section_2 >> section_3 >> section_4 >> section_postgres >> section_5 >> end_daily
