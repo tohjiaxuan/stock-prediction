@@ -48,11 +48,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_netincome_init_table(ti):
         netincome_df = ti.xcom_pull(task_ids='income_scraping')
         df_list = netincome_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO netincome_init (ticker, netincome, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
@@ -63,11 +59,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_assets_init_table(ti):
         assets_df = ti.xcom_pull(task_ids='assets_scraping')
         df_list = assets_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO assets_init (ticker, assets, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
@@ -78,11 +70,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_liab_init_table(ti):
         liab_df = ti.xcom_pull(task_ids='liab_scraping')
         df_list = liab_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO liab_init (ticker, liability, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
@@ -93,11 +81,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_equity_init_table(ti):
         eq_df = ti.xcom_pull(task_ids='equity_scraping')
         df_list = eq_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO equity_init (ticker, equity, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1].replace("s'", 's')}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
@@ -108,11 +92,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_div_init_table(ti):
         div_df = ti.xcom_pull(task_ids='dividends_scraping')
         df_list = div_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO dividends_init (ticker, dividends, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
@@ -124,9 +104,6 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         inflation_df = ti.xcom_pull(task_ids='inflation_scraping')
         df_list = inflation_df.values.tolist()
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO inflation_init (year, inflation)
             VALUES ('{result[0]}', '{result[1]}');
@@ -139,13 +116,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_netincome_yearly_table(ti):
         netincome_df = ti.xcom_pull(task_ids='income_scraping')
         df_list = netincome_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
-            INSERT INTO netincome_yearly (ticker, netincome, year2022)
+            INSERT INTO netincome_yearly (ticker, netincome, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
             print(query)
@@ -154,13 +127,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_assets_yearly_table(ti):
         assets_df = ti.xcom_pull(task_ids='assets_scraping')
         df_list = assets_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
-            INSERT INTO assets_yearly (ticker, assets, year2022)
+            INSERT INTO assets_yearly (ticker, assets, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
             print(query)
@@ -169,13 +138,12 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_liab_yearly_table(ti):
         liab_df = ti.xcom_pull(task_ids='liab_scraping')
         df_list = liab_df.values.tolist()
-        print(df_list)
         for result in df_list:
             print('this is result')
             print(result)
             print('this is query')
             query = f'''
-            INSERT INTO liab_yearly (ticker, liability, year2022)
+            INSERT INTO liab_yearly (ticker, liability, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
             print(query)
@@ -184,13 +152,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_equity_yearly_table(ti):
         eq_df = ti.xcom_pull(task_ids='equity_scraping')
         df_list = eq_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
-            INSERT INTO equity_yearly (ticker, equity, year2022)
+            INSERT INTO equity_yearly (ticker, equity, prev_year_data)
             VALUES ('{result[0]}', '{result[1].replace("s'", 's')}', '{result[2]}');
             '''
             print(query)
@@ -199,13 +163,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
     def insert_div_yearly_table(ti):
         div_df = ti.xcom_pull(task_ids='dividends_scraping')
         df_list = div_df.values.tolist()
-        print(df_list)
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
-            INSERT INTO dividends_yearly (ticker, dividends, year2022)
+            INSERT INTO dividends_yearly (ticker, dividends, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
             print(query)
@@ -215,9 +175,6 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         inflation_df = ti.xcom_pull(task_ids='inflation_scraping')
         df_list = inflation_df.values.tolist()
         for result in df_list:
-            print('this is result')
-            print(result)
-            print('this is query')
             query = f'''
             INSERT INTO inflation_yearly (year, inflation)
             VALUES ('{result[0]}', '{result[1]}');
@@ -353,7 +310,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             CREATE TABLE IF NOT EXISTS netincome_yearly (
             ticker TEXT NOT NULL PRIMARY KEY,
             netincome TEXT NOT NULL,
-            year2022 REAL
+            prev_year_data REAL
             );
             '''
         )
@@ -383,7 +340,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             CREATE TABLE IF NOT EXISTS assets_yearly (
             ticker TEXT NOT NULL PRIMARY KEY,
             assets TEXT NOT NULL,
-            year2022 REAL
+            prev_year_data REAL
             );
             '''
         )
@@ -413,7 +370,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             CREATE TABLE IF NOT EXISTS liab_yearly (
             ticker TEXT NOT NULL PRIMARY KEY,
             liability TEXT NOT NULL,
-            year2022 REAL
+            prev_year_data REAL
             );
             '''
         )
@@ -444,7 +401,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             CREATE TABLE IF NOT EXISTS equity_yearly (
             ticker TEXT NOT NULL PRIMARY KEY,
             equity TEXT NOT NULL,
-            year2022 REAL
+            prev_year_data REAL
             );
             '''
         )
@@ -475,7 +432,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             CREATE TABLE IF NOT EXISTS dividends_yearly (
             ticker TEXT NOT NULL PRIMARY KEY,
             dividends TEXT NOT NULL,
-            year2022 REAL
+            prev_year_data REAL
             );
             '''
         )
@@ -505,7 +462,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
         select * into reformat_netincome_yearly from
-        (SELECT distinct ticker, '2022' as year, year2022 as netincome FROM netincome_yearly) as a
+        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as netincome FROM netincome_yearly) as a
         '''
     )
 
@@ -533,7 +490,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
         select * into reformat_assets_yearly from
-        (SELECT distinct ticker, '2022' as year, year2022 as assets FROM assets_yearly) as a
+        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as assets FROM assets_yearly) as a
         '''
     )
 
@@ -561,7 +518,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
         select * into reformat_liab_yearly from
-        (SELECT distinct ticker, '2022' as year, year2022 as liability FROM liab_yearly) as a
+        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as liability FROM liab_yearly) as a
         '''
     )
 
@@ -589,7 +546,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
         select * into reformat_equity_yearly from
-        (SELECT distinct ticker, '2022' as year, year2022 as equity FROM equity_yearly) as a
+        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as equity FROM equity_yearly) as a
         '''
     )
 
@@ -617,7 +574,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
         select * into reformat_dividends_yearly from
-        (SELECT distinct ticker, '2022' as year, year2022 as dividends FROM dividends_yearly) as a
+        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as dividends FROM dividends_yearly) as a
         '''
     )
 

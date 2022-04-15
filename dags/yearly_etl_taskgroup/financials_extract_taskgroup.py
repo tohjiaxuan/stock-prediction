@@ -394,11 +394,8 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of net income 
     def income_scraping_data_yearly(**kwargs):
-        # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
-        # hence, we minus 1 from the current year to obtain the yearly data. 
-        curr_year = str(date.today().year - 1)
-
-        table_header = ['Ticker', 'Net Income', 'Year'+curr_year]
+        
+        table_header = ['Ticker', 'Net Income', 'prev_year_data']
         df = pd.DataFrame(columns=table_header)
         wsj_start = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end = '/financials/annual/income-statement'
@@ -415,18 +412,15 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
             except AttributeError as e:
                 no_data.append(i)
               
-        x = 'Year'+curr_year
+        x = 'prev_year_data'
         df[x] = df[x].astype(float)
         return df
 
 
     # Function for actual scraping of assets 
     def assets_scraping_data_yearly(**kwargs):
-        # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
-        # hence, we minus 1 from the current year to obtain the yearly data.
-        curr_year = str(date.today().year - 1)
-
-        table_header_assets = ['Ticker', 'Total Assets', 'Year'+curr_year]
+        
+        table_header_assets = ['Ticker', 'Total Assets', 'prev_year_data']
         df_assets = pd.DataFrame(columns=table_header_assets)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_bs = '/financials/annual/balance-sheet'
@@ -444,18 +438,15 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 no_data_assets.append(i)
                
 
-        x = 'Year'+curr_year
+        x = 'prev_year_data'
         df_assets[x] = df_assets[x].astype(float)
         return df_assets
 
 
     # Function for actual scraping of liabilities
     def liab_scraping_data_yearly(**kwargs):
-        # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
-        # hence, we minus 1 from the current year to obtain the yearly data.
-        curr_year = str(date.today().year - 1)
-
-        table_header_liab = ['Ticker', 'Total Liabilities', 'Year'+curr_year]
+        
+        table_header_liab = ['Ticker', 'Total Liabilities', 'prev_year_data']
         df_liab = pd.DataFrame(columns=table_header_liab)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_bs = '/financials/annual/balance-sheet'
@@ -473,17 +464,14 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
             except AttributeError as e:
                 no_data_liab.append(i)
                 
-        x = 'Year'+curr_year
+        x = 'prev_year_data'
         df_liab[x] = df_liab[x].astype(float)
         return df_liab
 
     # Function for actual scraping of equity
     def equity_scraping_data_yearly(**kwargs):
-        # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
-        # hence, we minus 1 from the current year to obtain the yearly data.
-        curr_year = str(date.today().year - 1)
-
-        table_header_eq = ['Ticker', 'Total Shareholders Equity', 'Year'+curr_year]
+        
+        table_header_eq = ['Ticker', 'Total Shareholders Equity', 'prev_year_data']
         df_eq = pd.DataFrame(columns=table_header_eq)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_bs = '/financials/annual/balance-sheet'
@@ -502,17 +490,14 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 no_data_eq.append(i)
               
         
-        x = 'Year'+curr_year
+        x = 'prev_year_data'
         df_eq[x] = df_eq[x].astype(float)
         return df_eq
 
     # Function for actual scraping of dividends 
     def dividends_scraping_data_yearly(**kwargs):
-    # only the previous year's data will be available (the current year's eg 2022's data will not be available yet in 2022.)
-        # hence, we minus 1 from the current year to obtain the yearly data.
-        curr_year = str(date.today().year - 1)
-
-        table_header_div = ['Ticker', 'Total Cash Dividends', 'Year'+curr_year]
+    
+        table_header_div = ['Ticker', 'Total Cash Dividends', 'prev_year_data']
         df_div = pd.DataFrame(columns=table_header_div)
         wsj_start_cf = 'https://www.wsj.com/market-data/quotes/SG/'
         wsj_end_cf = '/financials/annual/cash-flow'
@@ -534,7 +519,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 no_data_div.append(i)
                
     
-        x = 'Year'+curr_year
+        x = 'prev_year_data'
         df_div[x] = df_div[x].astype(float)
         return df_div
 
