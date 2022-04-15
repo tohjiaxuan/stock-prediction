@@ -16,10 +16,10 @@ interest_rate.Date = stocks.Date
 LEFT JOIN 
 `{{ params.project_id }}.{{ params.staging_dataset }}.inflation_key` inflation
 ON 
-EXTRACT(YEAR FROM inflation.YEAR) = EXTRACT(YEAR FROM stocks.date)
+(EXTRACT(YEAR FROM inflation.YEAR)+1) = EXTRACT(YEAR FROM stocks.date)
 LEFT JOIN 
 `{{ params.project_id }}.{{ params.staging_dataset }}.reformat_financials_ratios` financials
 ON 
-financials.ticker = stocks.Stock and EXTRACT(YEAR FROM financials.YEAR) = EXTRACT(YEAR FROM stocks.date) and financials.type = 'networth'
+financials.ticker = stocks.Stock and (EXTRACT(YEAR FROM financials.YEAR)+1) = EXTRACT(YEAR FROM stocks.date) and financials.type = 'networth'
 
 
