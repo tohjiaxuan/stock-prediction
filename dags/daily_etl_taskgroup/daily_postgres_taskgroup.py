@@ -348,9 +348,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        select *
+        SELECT *
         into distinct_stocks_daily from
-        (Select distinct * from stocks_daily) as stocks_daily
+        (SELECT DISTINCT * from stocks_daily) as stocks_daily
         '''
     )
 
@@ -359,7 +359,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        select distinct to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
         concat(end_of_day, '-EXR') as EXR_ID, 
         eur_sgd,
         gbp_sgd,
@@ -385,7 +385,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         preliminary as ex_rate_preliminary, 
         timestamp as ex_rate_timestamp
         into distinct_exchange_rates_daily
-        from(Select * from exchange_rates_daily) as ex_rates_daily
+        from(SELECT * from exchange_rates_daily) as ex_rates_daily
         '''
     )
 
@@ -394,7 +394,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        select distinct to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
         concat(end_of_day, '-INR') as INR_ID, 
         aggregate_volume,
         calculation_method,
@@ -413,7 +413,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         timestamp as int_rate_timestamp,
         CAST(on_rmb_facility_rate AS TEXT) AS on_rmb_facility_rate
         into distinct_interest_rates_daily 
-        from (Select * from interest_rates_daily) as ir_daily
+        from (SELECT * from interest_rates_daily) as ir_daily
         '''
     )
 
@@ -422,14 +422,14 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        select distinct concat(to_date(cast(Date as TEXT),'YYYY-MM-DD'), '-', Price_Category, '-COMM') as COMM_ID,
-        * into distinct_commodities_daily from
-            (select distinct * from (
-                (select *, 'Gold' as Price_Category from gold_daily)
+        SELECT DISTINCT concat(to_date(cast(Date as TEXT),'YYYY-MM-DD'), '-', Price_Category, '-COMM') as COMM_ID,
+        * INTO distinct_commodities_daily FROM
+            (SELECT DISTINCT * from (
+                (SELECT *, 'Gold' as Price_Category from gold_daily)
                     union all 
-                (select *, 'Silver' as Price_Category from silver_daily)
+                (SELECT *, 'Silver' as Price_Category from silver_daily)
                     union all 
-                (select *, 'Crude Oil' as Price_Category from crude_oil_daily)
+                (SELECT *, 'Crude Oil' as Price_Category from crude_oil_daily)
             )  as a
         ) as b 
         '''  
@@ -450,22 +450,22 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     def stocks_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="select * from stocks_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from stocks_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_hist_prices', project_id=PROJECT_ID, if_exists='replace') 
     
     def exchange_rates_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="select * from distinct_exchange_rates_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_exchange_rates_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.distinct_exchange_rate', project_id=PROJECT_ID, if_exists='replace') 
 
     def interest_rates_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="select * from distinct_interest_rates_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_interest_rate', project_id=PROJECT_ID, if_exists='replace')
 
     def commodities_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="select * from distinct_commodities_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_commodities_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_commodity_prices', project_id=PROJECT_ID, if_exists='replace') 
 
 
