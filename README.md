@@ -1,9 +1,14 @@
-# Creation of DATA WAREHOUSE on BigQuery for Stock Analysis (Prediction) & Sentiment Analysis
+# Creation of ETL pipeline using Apache Airlow and Data Warehouse on BigQuery for Stock Analysis (Prediction) & Sentiment Analysis
 
 # General Configurations needed
 1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
+2. Create GCS bucket on Google Cloud Platform
+a. Set location to asia-southeast1 (Singapore)
+b. Turn off object versioning, do not choose a retention policy and set encryption type to be google-managed key
+c. Set public access to be not public
+d. Developer should set the permissions by giving corresponding users the right access and role
 
-2. In the Airflow webserver, head to `Admin` > `Connections`. 
+3. In the Airflow webserver, head to `Admin` > `Connections`. 
 
 a. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
 
