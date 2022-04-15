@@ -394,7 +394,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of net income 
     def income_scraping_data_yearly(**kwargs):
-        
+        # set the column name to 'prev_year_data' so that it can be dynamically called during transformation (yearly).
         table_header = ['Ticker', 'Net Income', 'prev_year_data']
         df = pd.DataFrame(columns=table_header)
         wsj_start = 'https://www.wsj.com/market-data/quotes/SG/'
@@ -419,7 +419,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of assets 
     def assets_scraping_data_yearly(**kwargs):
-        
+        # set the column name to 'prev_year_data' so that it can be dynamically called during transformation (yearly).
         table_header_assets = ['Ticker', 'Total Assets', 'prev_year_data']
         df_assets = pd.DataFrame(columns=table_header_assets)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
@@ -445,7 +445,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of liabilities
     def liab_scraping_data_yearly(**kwargs):
-        
+        # set the column name to 'prev_year_data' so that it can be dynamically called during transformation (yearly).
         table_header_liab = ['Ticker', 'Total Liabilities', 'prev_year_data']
         df_liab = pd.DataFrame(columns=table_header_liab)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
@@ -470,7 +470,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of equity
     def equity_scraping_data_yearly(**kwargs):
-        
+        # set the column name to 'prev_year_data' so that it can be dynamically called during transformation (yearly).
         table_header_eq = ['Ticker', 'Total Shareholders Equity', 'prev_year_data']
         df_eq = pd.DataFrame(columns=table_header_eq)
         wsj_start_bs = 'https://www.wsj.com/market-data/quotes/SG/'
@@ -496,7 +496,7 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     # Function for actual scraping of dividends 
     def dividends_scraping_data_yearly(**kwargs):
-    
+        # set the column name to 'prev_year_data' so that it can be dynamically called during transformation (yearly).
         table_header_div = ['Ticker', 'Total Cash Dividends', 'prev_year_data']
         df_div = pd.DataFrame(columns=table_header_div)
         wsj_start_cf = 'https://www.wsj.com/market-data/quotes/SG/'
