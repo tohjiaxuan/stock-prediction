@@ -409,7 +409,7 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_financial_ratios_yearly',
         use_legacy_sql = False,
         sql = f'''
-                CREATE OR REPLACE TABLE table `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
                 SELECT concat(ticker, '-', EXTRACT(YEAR from year), '-', type) as id,
                 ticker, year, type, value from 
                 (SELECT distinct ticker, year, type, value
