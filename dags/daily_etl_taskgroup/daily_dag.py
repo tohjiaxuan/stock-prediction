@@ -42,13 +42,13 @@ curr_date = datetime.today().strftime('%Y-%m-%d')
 
 # Add retry_delay later on when pipeline is up
 default_args = {
-    'owner': 'Nicole',
+    'owner': 'airflow',
     'depends_on_past': False,
-    'email': ['nicole@png.com'],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1, # Remember to change this when the actual project kickstarts
-    'retry_delay': timedelta(minutes=2),
+    'email': ['jxtoh99@gmail.com'], # add your own email here
+    'email_on_failure': True,
+    'email_on_retry': True,
+    'retries': 2, 
+    'retry_delay': timedelta(minutes=10),
     'start_date': datetime(2022, 3, 15)
 }
 
