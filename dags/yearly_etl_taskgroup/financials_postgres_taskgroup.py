@@ -585,7 +585,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-            SELECT * INTI financials_join_init FROM (
+            SELECT * INTO financials_join_init FROM (
             SELECT iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
             FROM 
             (SELECT ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
