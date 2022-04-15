@@ -491,7 +491,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
 
 
-    start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily] >> create_commodities_daily_table
+    start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily]
     
     create_stocks_daily_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> stocks_daily_df_bigquery
     create_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
@@ -499,7 +499,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     create_table_gold_daily >> insert_gold_daily_table 
     create_table_silver_daily >> insert_silver_daily_table 
     create_table_crude_oil_daily >> insert_crude_oil_daily_table
-    create_commodities_daily_table >> distinct_commodities_daily_table >> commodities_daily_df_bigquery
+
+    [insert_gold_daily_table, insert_silver_daily_table, insert_crude_oil_daily_table, create_commodities_daily_table] >> distinct_commodities_daily_table
+    distinct_commodities_daily_table >> commodities_daily_df_bigquery
     
     [stocks_daily_df_bigquery, exchange_rates_daily_df_bigquery, interest_rates_daily_df_bigquery, commodities_daily_df_bigquery] >> end_daily_transformation_postgres
 

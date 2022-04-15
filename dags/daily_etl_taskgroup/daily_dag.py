@@ -14,8 +14,8 @@ from extract_taskgroup import build_extract_taskgroup
 from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
-from load_taskgroup import build_load_taskgroup
 from postgres_processing_daily import build_daily_postgres_taskgroup
+from load_taskgroup import build_load_taskgroup
 
 import json
 import os
@@ -60,7 +60,7 @@ def check_stocks(**kwargs):
 
 with DAG(
     dag_id="daily_dag",
-    schedule_interval="@daily",
+    schedule_interval=None,
     description = 'DAG for creation of data warehouse (Daily)',
     default_args=default_args,
     catchup = False
@@ -95,10 +95,11 @@ with DAG(
         stage_taskgroup = build_stage_taskgroup(dag=dag)
     with TaskGroup("transform", prefix_group_id = False) as section_4:
         transform_taskgroup = build_transform_taskgroup(dag=dag)
-    with TaskGroup("load", prefix_group_id = False) as section_5:
-        load_taskgroup = build_load_taskgroup(dag=dag)
     with TaskGroup("dailypostgres", prefix_group_id = False) as section_postgres:
         daily_postgres_taskgroup = build_daily_postgres_taskgroup(dag=dag)
+    with TaskGroup("load", prefix_group_id = False) as section_5:
+        load_taskgroup = build_load_taskgroup(dag=dag)
+
     start_gcs = BashOperator(
         task_id = 'start_gcs_task',
         bash_command = 'echo start',

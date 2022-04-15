@@ -141,7 +141,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             int_df = int_df.iloc[1:]
         
         lag_int = int_df.join(ex_df)
-        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'})         
+        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'})
+        if 'date' in lag_int.columns and 'inr_id' in lag_int.columns:
+            lag_int.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)         
         lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
     # Define python functions for commodities related items (gold, silver, crude oil)
