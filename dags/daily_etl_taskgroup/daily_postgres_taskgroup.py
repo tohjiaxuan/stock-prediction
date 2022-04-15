@@ -491,7 +491,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
 
 
-    start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily]
+    start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily, create_commodities_daily_table]
     
     create_stocks_daily_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> stocks_daily_df_bigquery
     create_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
