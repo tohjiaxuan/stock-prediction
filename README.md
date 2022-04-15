@@ -102,7 +102,7 @@ a. Run `airflow db init`
 
 b. Re-run the airflow webserver and scheduler. 
 
-# Configuration of conn_id to connect to PostGres
+# Configuration of conn_id to connect to PostGres (After the PostGres Database has been created)
 ### Add a new conn_id
 
 In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
@@ -116,5 +116,9 @@ Connection Type: Postgres
 Description: Airflow connection to PostGres
 
 Host: localhost
+
+Schema: postgres_db
+
+Login: postgres_local
 
 Port: 5432
