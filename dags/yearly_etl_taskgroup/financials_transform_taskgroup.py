@@ -11,12 +11,13 @@ from google.cloud import storage
 from google.cloud.exceptions import NotFound
 
 import cchardet
+import logging
 import json
 import os
 import pandas as pd
 import requests
 import urllib.request
-
+logging.basicConfig(level=logging.INFO)
 
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -60,10 +61,13 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
+                logging.info('Do transformation on yearly data')
                 return 'yearly_transformation_financials'
             else:
+                logging.info('Do transformation on historical data')
                 return 'init_transformation_financials'
         except:
+            logging.info('Do transformation on historical data')
             return 'init_transformation_financials'
 
     # dummy operator to denote path to do transformation on historical data

@@ -9,11 +9,13 @@ from google.cloud import bigquery
 from google.cloud import storage
 import cchardet
 import json
+import logging
 import numpy as np
 import os
 import pandas as pd
 import requests
 import urllib.request
+logging.basicConfig(level=logging.INFO)
 
 from financials_extract_taskgroup import build_financials_extract_taskgroup
 from financials_gcs_taskgroup import build_financials_gcs_taskgroup
@@ -102,13 +104,16 @@ def decide_path():
     """
     # if empty, start to extract task
     if d_inflation_empty():
+        logging.info('Start extracting historical data')
         return 'start_extract_task'
     else:
         # only run the DAG if the data is not up-to-date.
         if days_difference() > 365:
+            logging.info('Recent yearly data has not been extracted. Begin ETL pipeline')
             return 'start_extract_task'
         # else, skip till the end of DAG.
         else: 
+            logging.info('Data is up-to-date. Skip ETL and trigger Daily DAG')
             return 'end_yearly'
 
 

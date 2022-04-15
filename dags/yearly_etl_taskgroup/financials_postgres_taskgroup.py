@@ -15,11 +15,13 @@ from google.cloud import storage
 from google.cloud.exceptions import NotFound
 import cchardet
 import json
+import logging
 import os
 import pandas as pd
 import pandas_gbq
 import requests
 import urllib.request
+logging.basicConfig(level=logging.INFO)
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
 
@@ -60,7 +62,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO netincome_init (ticker, netincome, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
 
     def insert_assets_init_table(ti):
@@ -78,7 +80,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO assets_init (ticker, assets, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_liab_init_table(ti):
@@ -96,7 +98,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO liab_init (ticker, liability, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_equity_init_table(ti):
@@ -114,7 +116,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO equity_init (ticker, equity, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1].replace("s'", 's')}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_div_init_table(ti):
@@ -132,7 +134,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO dividends_init (ticker, dividends, year2021, year2020, year2019, year2018, year2017)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
 
     def insert_inflation_init_table(ti):
@@ -150,7 +152,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO inflation_init (year, inflation)
             VALUES ('{result[0]}', '{result[1]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_netincome_yearly_table(ti):
@@ -168,7 +170,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO netincome_yearly (ticker, netincome, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
 
     def insert_assets_yearly_table(ti):
@@ -186,7 +188,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO assets_yearly (ticker, assets, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_liab_yearly_table(ti):
@@ -207,7 +209,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO liab_yearly (ticker, liability, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_equity_yearly_table(ti):
@@ -225,7 +227,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO equity_yearly (ticker, equity, prev_year_data)
             VALUES ('{result[0]}', '{result[1].replace("s'", 's')}', '{result[2]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
     
     def insert_div_yearly_table(ti):
@@ -243,7 +245,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO dividends_yearly (ticker, dividends, prev_year_data)
             VALUES ('{result[0]}', '{result[1]}', '{result[2]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
 
     def insert_inflation_yearly_table(ti):
@@ -261,7 +263,7 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO inflation_yearly (year, inflation)
             VALUES ('{result[0]}', '{result[1]}');
             '''
-            print(query)
+            logging.info(f'Query: {query}')
             execute_query_with_hook(query)
 
     # Python operator to insert historical net income into table
@@ -930,10 +932,13 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
+                logging.info('Do transformation on yearly data')
                 return 'yearly_postgres_financials_transformation'
             else:
+                logging.info('Do transformation on historical data')
                 return 'init_postgres_financials_transformation'
         except:
+            logging.info('Do transformation on historical data')
             return 'init_postgres_financials_transformation'
 
 
@@ -979,10 +984,13 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
+                logging.info('Do transformation on yearly data')
                 return 'yearly_postgres_inflation_transformation'
             else:
+                logging.info('Do transformation on historical data')
                 return 'init_postgres_inflation_transformation'
         except:
+            logging.info('Do transformation on historical data')
             return 'init_postgres_inflation_transformation'
 
     # dummy operator to denote path to do transformation on historical data

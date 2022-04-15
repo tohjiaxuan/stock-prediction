@@ -11,10 +11,12 @@ from google.cloud.exceptions import NotFound
 
 import cchardet
 import json
+import logging
 import os
 import pandas as pd
 import requests
 import urllib.request
+logging.basicConfig(level=logging.INFO)
 
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -391,9 +393,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find_all("tr")
                 table = soup.find('table', attrs={'class':'cr_dataTable'})
                 df = table_content_income(i, table, df, table_header)
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data.append(i)
+                logging.info(f'No data available for: {i}')
 
         
         df[['Year2021', 'Year2020', 'Year2019', 'Year2018', 'Year2017']] = df[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
@@ -425,9 +429,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find_all("tr")
                 table = soup.find('table', attrs={'class':'cr_dataTable'})
                 df_assets = table_content_assets(i, table, df_assets, table_header_assets)
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_assets.append(i)
+                logging.info(f'No data available for: {i}')
 
         df_assets[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_assets[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
         
@@ -458,9 +464,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find('div', class_='collapsed')
                 table = wants.find('table', attrs={'class':'cr_dataTable'})
                 df_liab = table_content_liab(i, table, df_liab, table_header_liab)
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_liab.append(i)
+                logging.info(f'No data available for: {i}')
    
         df_liab[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_liab[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float) 
         
@@ -491,9 +499,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find('div', class_='collapsed')
                 table = wants.find('table', attrs={'class':'cr_dataTable'})
                 df_eq = table_content_equity(i, table, df_eq, table_header_eq)
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_eq.append(i)
+                logging.info(f'No data available for: {i}')
         
         df_eq[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_eq[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
     
@@ -527,10 +537,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                     temp = want
                 table = temp.find('table', attrs={'class':'cr_dataTable'})
                 df_div = table_content_div(i, table, df_div, table_header_div)
-                
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_div.append(i)
+                logging.info(f'No data available for: {i}')
              
         df_div[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']] = df_div[['Year2021','Year2020', 'Year2019', 'Year2018', 'Year2017']].astype(float)
        
@@ -593,9 +604,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find_all("tr")
                 table = soup.find('table', attrs={'class':'cr_dataTable'})
                 df = table_content_income_yearly(i, table, df, table_header)
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data.append(i)
+                logging.info(f'No data available for: {i}')
               
         x = 'prev_year_data'
         df[x] = df[x].astype(float)
@@ -627,9 +640,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find_all("tr")
                 table = soup.find('table', attrs={'class':'cr_dataTable'})
                 df_assets = table_content_assets_yearly(i, table, df_assets, table_header_assets)
+                logging.info(f'Collection for: {i} is done')
               
             except AttributeError as e:
                 no_data_assets.append(i)
+                logging.info(f'No data available for: {i}')
                
 
         x = 'prev_year_data'
@@ -662,10 +677,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find('div', class_='collapsed')
                 table = wants.find('table', attrs={'class':'cr_dataTable'})
                 df_liab = table_content_liab_yearly(i, table, df_liab, table_header_liab)
-              
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_liab.append(i)
+                logging.info(f'No data available for: {i}')
                 
         x = 'prev_year_data'
         df_liab[x] = df_liab[x].astype(float)
@@ -697,11 +713,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                 wants = soup.find('div', class_='collapsed')
                 table = wants.find('table', attrs={'class':'cr_dataTable'})
                 df_eq = table_content_equity_yearly(i, table, df_eq, table_header_eq)
-               
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_eq.append(i)
-              
+                logging.info(f'No data available for: {i}')
         
         x = 'prev_year_data'
         df_eq[x] = df_eq[x].astype(float)
@@ -736,11 +752,11 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
                     temp = want
                 table = temp.find('table', attrs={'class':'cr_dataTable'})
                 df_div = table_content_div_yearly(i, table, df_div, table_header_div)
-             
+                logging.info(f'Collection for: {i} is done')
                 
             except AttributeError as e:
                 no_data_div.append(i)
-               
+                logging.info(f'No data available for: {i}')
     
         x = 'prev_year_data'
         df_div[x] = df_div[x].astype(float)
@@ -851,8 +867,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_financials_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             netincome_df = income_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             netincome_df = income_scraping_data()
         return netincome_df
     
@@ -868,8 +886,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_financials_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             assets_df = assets_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             assets_df = assets_scraping_data()
         return assets_df
 
@@ -885,8 +905,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_financials_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             liab_df = liab_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             liab_df = liab_scraping_data()
         return liab_df
 
@@ -902,8 +924,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_financials_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             equity_df = equity_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             equity_df = equity_scraping_data()
         return equity_df
 
@@ -919,8 +943,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_financials_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             div_df = dividends_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             div_df = dividends_scraping_data()
         return div_df
     
@@ -936,8 +962,10 @@ def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         check_dwh = if_d_inflation_exists()
         if check_dwh:
+            logging.info('Scrape yearly data')
             inflation_df = inflation_scraping_data_yearly()
         else: 
+            logging.info('Scrape historical data')
             inflation_df = inflation_scraping_data()
         return inflation_df
 

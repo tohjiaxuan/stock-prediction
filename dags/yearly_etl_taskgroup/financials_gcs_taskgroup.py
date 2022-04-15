@@ -8,10 +8,12 @@ from google.cloud.exceptions import NotFound
 
 import cchardet
 import json
+import logging
 import os
 import pandas as pd
 import requests
 import urllib.request
+logging.basicConfig(level=logging.INFO)
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
 
@@ -41,6 +43,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         netincome = ti.xcom_pull(task_ids='income_scraping')
         netincome.to_parquet('gs://stock_prediction_is3107/netincome.parquet')
+        logging.info('net income parquet file has been pushed to Google Cloud Storage')
 
     def push_assets(ti):
         """ Retrieves extracted assets dataframe from XCOMs.
@@ -53,6 +56,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         assets = ti.xcom_pull(task_ids='assets_scraping')
         assets.to_parquet('gs://stock_prediction_is3107/assets.parquet')
+        logging.info('assets parquet file has been pushed to Google Cloud Storage')
     
     def push_liab(ti):
         """ Retrieves extracted liabilities dataframe from XCOMs.
@@ -65,6 +69,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         liab = ti.xcom_pull(task_ids='liab_scraping')
         liab.to_parquet('gs://stock_prediction_is3107/liab.parquet')
+        logging.info('liabilities parquet file has been pushed to Google Cloud Storage')
     
     def push_equity(ti):
         """ Retrieves extracted equity dataframe from XCOMs.
@@ -77,6 +82,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         eq = ti.xcom_pull(task_ids='equity_scraping')
         eq.to_parquet('gs://stock_prediction_is3107/equity.parquet')
+        logging.info('equity parquet file has been pushed to Google Cloud Storage')
     
     def push_dividends(ti):
         """ Retrieves extracted dividends dataframe from XCOMs.
@@ -89,6 +95,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         div = ti.xcom_pull(task_ids='dividends_scraping')
         div.to_parquet('gs://stock_prediction_is3107/div.parquet')
+        logging.info('dividends parquet file has been pushed to Google Cloud Storage')
 
     def push_inflation(ti):
         """ Retrieves extracted inflation dataframe from XCOMs.
@@ -101,6 +108,7 @@ def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
         """
         inflation = ti.xcom_pull(task_ids='inflation_scraping')
         inflation.to_parquet('gs://stock_prediction_is3107/inflation.parquet')
+        logging.info('inflation parquet file has been pushed to Google Cloud Storage')
 
 
     # Python Operator to push to Google Cloud Storage
