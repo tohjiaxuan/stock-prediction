@@ -1,4 +1,56 @@
-# Creation of ETL pipeline using Apache Airlow and Data Warehouse on BigQuery for Stock Analysis (Prediction) & Sentiment Analysis
+# ETL & DWH Project
+The main aim of this project is to create a ETL pipeline using Apache Airlow and a data warehouse on BigQuery for downstream applicatinos such as Stock Analysis (Prediction) & Sentiment Analysis. 
+
+Deliverables for this project includes:
+1. 3 DAGs created using Python
+2. GCS bucket in Google Cloud Platform
+3. Staging tables hosted in BigQuery
+4. PostgreSQL database used to conduct transformations in times of failure
+5. Data Warehouse hosted in BigQuery
+
+# Project Directory
+```
+├── Experimental Code
+│   └── ...
+├── dags
+│   └── archive
+│       ├── ...
+│   └── daily_etl_taskgroup
+│       ├── daily_dag.py
+│       ├── extract_taskgroup.py
+│       ├── gcs_taskgroup.py
+│       ├── load_taskgroup.py
+│       ├── daily_postgres_taskgroup.py
+│       ├── stage_taskgroup.py
+│       ├── transform_taskgroup.py
+│   └── news_etl_taskgroup
+│       ├── daily_financial_news.py
+│       ├── extract_taskgroup.py
+│       ├── gcs_taskgroup.py
+│       ├── load_taskgroup.py
+│       ├── postgres_taskgroup.py
+│       ├── stage_taskgroup.py
+│       ├── transform_taskgroup.py
+│   └── sql
+│       ├── D_commodities.sql
+│       ├── D_exchange_rate.sql
+│       ├── D_financials.sql
+│       ├── D_inflation.sql
+│       ├── D_interest_rate.sql
+│       ├── F_news.sql
+│       ├── F_stock.sql
+│   └── yearly_etl_taskgroup
+│       ├── financials_dwh_schemas.py
+│       ├── financials_extract_taskgroup.py
+│       ├── financials_gcs_taskgroup.py
+│       ├── financials_load_taskgroup.py
+│       ├── financials_postgres_taskgroup.py
+│       ├── financials_schema_taskgroup.py
+│       ├── financials_stage_taskgroup.py
+│       ├── financials_transform_taskgroup.py
+│       ├── yearly_dag_etl.py
+│   └── sti.csv
+```
 
 # General Configurations needed
 1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
