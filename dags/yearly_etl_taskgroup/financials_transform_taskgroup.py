@@ -90,11 +90,11 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
         CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_init` AS SELECT * FROM
-        (SELECT distinct ticker, year, netincome
+        (SELECT DISTINCT ticker, year, netincome
         FROM `{PROJECT_ID}.{STAGING_DATASET}.netincome` 
         UNPIVOT
         (netincome FOR year
-        IN (year2021 as '2021', year2020 as '2020', year2019 as '2019', year2018 as '2018', year2017 as '2017')))
+        IN (year2021 AS '2021', year2020 AS '2020', year2019 AS '2019', year2018 AS '2018', year2017 AS '2017')))
         ''',
         dag = dag
     )
@@ -105,11 +105,11 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
         CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_init` AS SELECT * FROM
-        (SELECT distinct ticker, year, assets
+        (SELECT DISTINCT ticker, year, assets
         FROM `{PROJECT_ID}.{STAGING_DATASET}.assets` 
         UNPIVOT
         (assets FOR year
-        IN (year2021 as '2021', year2020 as '2020', year2019 as '2019', year2018 as '2018', year2017 as '2017')))
+        IN (year2021 AS '2021', year2020 AS '2020', year2019 AS '2019', year2018 AS '2018', year2017 AS '2017')))
         ''',
         dag = dag
     )
@@ -120,11 +120,11 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
         CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_init` AS SELECT * FROM
-        (SELECT distinct ticker, year, liability
+        (SELECT DISTINCT ticker, year, liability
         FROM `{PROJECT_ID}.{STAGING_DATASET}.liab` 
         UNPIVOT
         (liability FOR year
-        IN (year2021 as '2021', year2020 as '2020', year2019 as '2019', year2018 as '2018', year2017 as '2017')))
+        IN (year2021 AS '2021', year2020 AS '2020', year2019 AS '2019', year2018 AS '2018', year2017 AS '2017')))
         ''',
         dag = dag
     )
@@ -135,11 +135,11 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
         CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_init` AS SELECT * FROM
-        (SELECT distinct ticker, year, equity
+        (SELECT DISTINCT ticker, year, equity
         FROM `{PROJECT_ID}.{STAGING_DATASET}.equity` 
         UNPIVOT
         (equity FOR year
-        IN (year2021 as '2021', year2020 as '2020', year2019 as '2019', year2018 as '2018', year2017 as '2017')))
+        IN (year2021 AS '2021', year2020 AS '2020', year2019 AS '2019', year2018 AS '2018', year2017 AS '2017')))
         ''',
         dag = dag
     )
@@ -150,11 +150,11 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         use_legacy_sql = False,
         sql = f'''
         CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_init` AS SELECT * FROM
-        (SELECT distinct ticker, year, dividends
+        (SELECT DISTINCT ticker, year, dividends
         FROM `{PROJECT_ID}.{STAGING_DATASET}.div` 
         UNPIVOT
         (dividends FOR year
-        IN (year2021 as '2021', year2020 as '2020', year2019 as '2019', year2018 as '2018', year2017 as '2017')))
+        IN (year2021 AS '2021', year2020 AS '2020', year2019 AS '2019', year2018 AS '2018', year2017 AS '2017')))
         ''',
         dag = dag
     )
@@ -182,13 +182,13 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
             (SELECT ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
             FROM (SELECT i.ticker, i.year, i.netincome, a.assets FROM `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_init` i
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_init` a 
-                            on i.ticker = a.ticker and i.year = a.year) as ia 
+                            ON i.ticker = a.ticker AND i.year = a.year) AS ia 
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_init` l
-                            on ia.ticker = l.ticker and ia.year = l.year) ial
+                            ON ia.ticker = l.ticker AND ia.year = l.year) ial
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_init` e
-                            on ial.ticker = e.ticker and ial.year = e.year) iale
+                            ON ial.ticker = e.ticker AND ial.year = e.year) iale
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_init` d
-                            on iale.ticker = d.ticker and iale.year = d.year
+                            ON iale.ticker = d.ticker AND iale.year = d.year
         ''',
         dag = dag
     )
@@ -214,28 +214,28 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
                     networth float64
                 )
                 AS
-                SELECT concat(ticker, '.SI') as ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
-                (CASE WHEN netincome is null then null
-                WHEN netincome = 0 then 0
-                WHEN assets is null then null
-                WHEN assets = 0 then null 
-                ELSE netincome/assets end) as ROA, 
+                SELECT concat(ticker, '.SI') AS ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) AS year, netincome, assets, liability, equity, dividends,
+                (CASE WHEN netincome IS null THEN null
+                WHEN netincome = 0 THEN 0
+                WHEN assets IS null THEN null
+                WHEN assets = 0 THEN null 
+                ELSE netincome/assets END) AS ROA, 
 
-                (CASE WHEN netincome is null then null
-                WHEN netincome = 0 then 0
-                WHEN equity is null then null
-                WHEN equity = 0 then null 
-                ELSE netincome/equity end) as ROE,
+                (CASE WHEN netincome IS null THEN null
+                WHEN netincome = 0 THEN 0
+                WHEN equity IS null THEN null
+                WHEN equity = 0 THEN null 
+                ELSE netincome/equity END) AS ROE,
 
-                (CASE WHEN liability is null then null
-                WHEN liability = 0 then 0
-                WHEN equity is null then null
-                WHEN equity = 0 then null 
-                ELSE liability/equity end) as debttoequity, 
+                (CASE WHEN liability IS null THEN null
+                WHEN liability = 0 THEN 0
+                WHEN equity IS null THEN null
+                WHEN equity = 0 THEN null 
+                ELSE liability/equity END) AS debttoequity, 
 
-                (CASE WHEN liability is null then null
-                WHEN assets is null then null
-                ELSE liability-assets end) as networth,  
+                (CASE WHEN liability IS null THEN null
+                WHEN assets IS null THEN null
+                ELSE liability-assets END) AS networth,  
                 FROM
                 `{PROJECT_ID}.{STAGING_DATASET}.financials_join`
         ''',
@@ -248,9 +248,9 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_financial_ratios',
         use_legacy_sql = False,
         sql = f'''
-                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
-                SELECT concat(ticker, '-', EXTRACT(YEAR from year), '-', type) as id,
-                ticker, year, type, value from 
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` AS 
+                SELECT concat(ticker, '-', EXTRACT(YEAR from year), '-', type) AS id,
+                ticker, year, type, value FROM 
                 (SELECT distinct ticker, year, type, value
                 FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios` 
                 UNPIVOT
@@ -272,8 +272,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_netincome_yearly',
         use_legacy_sql = False,
         sql = f'''
-            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_yearly` as
-            (SELECT distinct ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) as year, prev_year_data as netincome FROM `{PROJECT_ID}.{STAGING_DATASET}.netincome`)
+            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_yearly` AS
+            (SELECT DISTINCT ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) AS year, prev_year_data AS netincome FROM `{PROJECT_ID}.{STAGING_DATASET}.netincome`)
         ''',
         dag = dag
     )
@@ -283,8 +283,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_assets_yearly',
         use_legacy_sql = False,
         sql = f'''
-            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_yearly` as
-            (SELECT distinct ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) as year, prev_year_data as assets FROM `{PROJECT_ID}.{STAGING_DATASET}.assets`)
+            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_yearly` AS
+            (SELECT DISTINCT ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) AS year, prev_year_data AS assets FROM `{PROJECT_ID}.{STAGING_DATASET}.assets`)
         ''',
         dag = dag
     )
@@ -294,8 +294,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_liab_yearly',
         use_legacy_sql = False,
         sql = f'''
-        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_yearly` as
-            (SELECT distinct ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) as year, prev_year_data as liability FROM `{PROJECT_ID}.{STAGING_DATASET}.liab`)
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_yearly` AS
+            (SELECT DISTINCT ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) AS year, prev_year_data AS liability FROM `{PROJECT_ID}.{STAGING_DATASET}.liab`)
         ''',
         dag = dag
     )
@@ -305,8 +305,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_equity_yearly',
         use_legacy_sql = False,
         sql = f'''
-        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_yearly` as
-            (SELECT distinct ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) as year, prev_year_data as equity FROM `{PROJECT_ID}.{STAGING_DATASET}.equity`)
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_yearly` AS
+            (SELECT DISTINCT ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) AS year, prev_year_data AS equity FROM `{PROJECT_ID}.{STAGING_DATASET}.equity`)
         ''',
         dag = dag
     )
@@ -316,8 +316,8 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_div_yearly',
         use_legacy_sql = False,
         sql = f'''
-        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_yearly` as
-            (SELECT distinct ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) as year, prev_year_data as dividends FROM `{PROJECT_ID}.{STAGING_DATASET}.div`)
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_yearly` AS
+            (SELECT DISTINCT ticker, CAST(EXTRACT(YEAR FROM CURRENT_DATE()) - 1 AS STRING) AS year, prev_year_data AS dividends FROM `{PROJECT_ID}.{STAGING_DATASET}.div`)
         ''',
         dag = dag
     )
@@ -337,21 +337,21 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
                 equity float64, 
                 dividends float64
             )
-            as
+            AS
             SELECT iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
             FROM 
-            (select ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
+            (SELECT ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
             FROM 
             (SELECT ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
             FROM (SELECT i.ticker, i.year, i.netincome, a.assets FROM `{PROJECT_ID}.{STAGING_DATASET}.reformat_netincome_yearly` i
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_assets_yearly` a 
-                            on i.ticker = a.ticker and i.year = a.year) as ia 
+                            ON i.ticker = a.ticker AND i.year = a.year) AS ia 
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_liab_yearly` l
-                            on ia.ticker = l.ticker and ia.year = l.year) ial
+                            ON ia.ticker = l.ticker AND ia.year = l.year) ial
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_equity_yearly` e
-                            on ial.ticker = e.ticker and ial.year = e.year) iale
+                            ON ial.ticker = e.ticker AND ial.year = e.year) iale
                     LEFT JOIN `{PROJECT_ID}.{STAGING_DATASET}.reformat_div_yearly` d
-                            on iale.ticker = d.ticker and iale.year = d.year
+                            ON iale.ticker = d.ticker AND iale.year = d.year
         ''',
         dag = dag
     )
@@ -375,29 +375,29 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
                     debttoequity float64,
                     networth float64
                 )
-                as
-                SELECT concat(ticker, '.SI') as ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, netincome, assets, liability, equity, dividends,
-                (CASE WHEN netincome is null then null
-                WHEN netincome = 0 then 0
-                WHEN assets is null then null
-                WHEN assets = 0 then null 
-                ELSE netincome/assets end) as ROA, 
+                AS
+                SELECT concat(ticker, '.SI') AS ticker, parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) AS year, netincome, assets, liability, equity, dividends,
+                (CASE WHEN netincome IS null THEN null
+                WHEN netincome = 0 THEN 0
+                WHEN assets IS null THEN null
+                WHEN assets = 0 THEN null 
+                ELSE netincome/assets END) AS ROA, 
 
-                (CASE WHEN netincome is null then null
-                WHEN netincome = 0 then 0
-                WHEN equity is null then null
-                WHEN equity = 0 then null 
-                ELSE netincome/equity end) as ROE,
+                (CASE WHEN netincome IS null THEN null
+                WHEN netincome = 0 THEN 0
+                WHEN equity IS null THEN null
+                WHEN equity = 0 THEN null 
+                ELSE netincome/equity END) AS ROE,
 
-                (CASE WHEN liability is null then null
-                WHEN liability = 0 then 0
-                WHEN equity is null then null
-                WHEN equity = 0 then null 
-                ELSE liability/equity end) as debttoequity, 
+                (CASE WHEN liability IS null THEN null
+                WHEN liability = 0 THEN 0
+                WHEN equity IS null THEN null
+                WHEN equity = 0 THEN null 
+                ELSE liability/equity END) AS debttoequity, 
 
-                (CASE WHEN liability is null then null
-                WHEN assets is null then null
-                ELSE liability-assets end) as networth,  
+                (CASE WHEN liability IS null THEN null
+                WHEN assets IS null THEN null
+                ELSE liability-assets END) AS networth,  
                 FROM
                 `{PROJECT_ID}.{STAGING_DATASET}.financials_join_yearly`
         ''',
@@ -409,9 +409,9 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'reformat_financial_ratios_yearly',
         use_legacy_sql = False,
         sql = f'''
-                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` as 
-                SELECT concat(ticker, '-', EXTRACT(YEAR from year), '-', type) as id,
-                ticker, year, type, value from 
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.reformat_financials_ratios` AS 
+                SELECT CONCAT(ticker, '-', EXTRACT(YEAR from year), '-', type) AS id,
+                ticker, year, type, value FROM 
                 (SELECT distinct ticker, year, type, value
                 FROM `{PROJECT_ID}.{STAGING_DATASET}.financials_with_ratios_yearly` 
                 UNPIVOT
@@ -426,10 +426,10 @@ def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'inflation_key',
         use_legacy_sql = False,
         sql = f'''
-                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.inflation_key` as
-                SELECT concat(EXTRACT(YEAR from temp.year), '-inflation') as id, year, CAST(inflation AS FLOAT64) as inflation
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.inflation_key` AS
+                SELECT CONCAT(EXTRACT(YEAR from temp.year), '-inflation') AS id, year, CAST(inflation AS FLOAT64) AS inflation
                 FROM
-                (SELECT parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) as year, inflation FROM `{PROJECT_ID}.{STAGING_DATASET}.inflation`) as temp
+                (SELECT parse_timestamp("%Y-%m-%d", concat(year, '-12-31')) AS year, inflation FROM `{PROJECT_ID}.{STAGING_DATASET}.inflation`) AS temp
 
         ''',
         dag = dag

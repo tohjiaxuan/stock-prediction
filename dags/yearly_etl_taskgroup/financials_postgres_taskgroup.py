@@ -443,16 +443,16 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_netincome_init from
-        (select distinct * from ((select ticker, '2021' as year, year2021 as netincome from netincome_init) 
-            union all   
-        (select ticker, '2020' as year, year2020 as netincome from netincome_init)  
-            union all 
-        (select ticker, '2019' as year, year2019 as netincome from netincome_init)  
-            union all 
-        (select ticker, '2018' as year, year2018 as netincome from netincome_init)  
-            union all 
-        (select ticker, '2017' as year, year2017 as netincome from netincome_init)) as a) as b
+        SELECT * INTO reformat_netincome_init FROM
+        (SELECT DISTINCT * FROM ((SELECT ticker, '2021' AS year, year2021 AS netincome FROM netincome_init) 
+            UNION ALL   
+        (SELECT ticker, '2020' AS year, year2020 AS netincome FROM netincome_init)  
+            UNION ALL 
+        (SELECT ticker, '2019' AS year, year2019 AS netincome FROM netincome_init)  
+            UNION ALL 
+        (SELECT ticker, '2018' AS year, year2018 AS netincome FROM netincome_init)  
+            UNION ALL 
+        (SELECT ticker, '2017' AS year, year2017 AS netincome FROM netincome_init)) AS a) AS b
         '''
     )
 
@@ -461,8 +461,8 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_netincome_yearly from
-        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as netincome FROM netincome_yearly) as a
+        SELECT * INTO reformat_netincome_yearly FROM
+        (SELECT DISTINCT ticker, to_char(current_date, 'YYYY') AS year, prev_year_data AS netincome FROM netincome_yearly) AS a
         '''
     )
 
@@ -471,16 +471,16 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_assets_init from
-        (select distinct * from ((select ticker, '2021' as year, year2021 as assets from assets_init) 
-            union all   
-        (select ticker, '2020' as year, year2020 as assets from assets_init) 
-            union all 
-        (select ticker, '2019' as year, year2019 as assets from assets_init)  
-            union all 
-        (select ticker, '2018' as year, year2018 as assets from assets_init)  
-            union all 
-        (select ticker, '2017' as year, year2017 as assets from assets_init)) as a) as b
+        SELECT * INTO reformat_assets_init FROM
+        (SELECT DISTINCT * FROM ((SELECT ticker, '2021' AS year, year2021 AS assets FROM assets_init) 
+            UNION ALL   
+        (SELECT ticker, '2020' AS year, year2020 AS assets FROM assets_init) 
+            UNION ALL 
+        (SELECT ticker, '2019' AS year, year2019 AS assets FROM assets_init)  
+            UNION ALL 
+        (SELECT ticker, '2018' AS year, year2018 AS assets FROM assets_init)  
+            UNION ALL 
+        (SELECT ticker, '2017' AS year, year2017 AS assets FROM assets_init)) AS a) AS b
         '''
     )
 
@@ -489,8 +489,8 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_assets_yearly from
-        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as assets FROM assets_yearly) as a
+        SELECT * INTO reformat_assets_yearly FROM
+        (SELECT DISTINCT ticker, to_char(current_date, 'YYYY') AS year, prev_year_data AS assets FROM assets_yearly) AS a
         '''
     )
 
@@ -499,16 +499,16 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_liab_init from
-        (select distinct * from ((select ticker, '2021' as year, year2021 as liability from liab_init) 
-            union all   
-        (select ticker, '2020' as year, year2020 as liability from liab_init) 
-            union all 
-        (select ticker, '2019' as year, year2019 as liability from liab_init)  
-            union all 
-        (select ticker, '2018' as year, year2018 as liability from liab_init)  
-            union all 
-        (select ticker, '2017' as year, year2017 as liability from liab_init)) as a) as b
+        SELECT * INTO reformat_liab_init FROM
+        (SELECT DISTINCT * FROM ((SELECT ticker, '2021' AS year, year2021 AS liability FROM liab_init) 
+            UNION ALL  
+        (SELECT ticker, '2020' AS year, year2020 AS liability FROM liab_init) 
+            UNION ALL 
+        (SELECT ticker, '2019' AS year, year2019 AS liability FROM liab_init)  
+            UNION ALL 
+        (SELECT ticker, '2018' AS year, year2018 AS liability FROM liab_init)  
+            UNION ALL 
+        (SELECT ticker, '2017' AS year, year2017 AS liability FROM liab_init)) AS a) AS b
         '''
     )
 
@@ -517,8 +517,8 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_liab_yearly from
-        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as liability FROM liab_yearly) as a
+        SELECT * INTO reformat_liab_yearly FROM
+        (SELECT DISTINCT ticker, to_char(current_date, 'YYYY') AS year, prev_year_data AS liability FROM liab_yearly) AS a
         '''
     )
 
@@ -527,16 +527,16 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_equity_init from
-        (select distinct * from ((select ticker, '2021' as year, year2021 as equity from equity_init) 
-            union all   
-        (select ticker, '2020' as year, year2020 as equity from equity_init) 
-             union all 
-        (select ticker, '2019' as year, year2019 as equity from equity_init)  
-            union all 
-        (select ticker, '2018' as year, year2018 as equity from equity_init)  
-            union all 
-        (select ticker, '2017' as year, year2017 as equity from equity_init)) as a) as b
+        SELECT * INTO reformat_equity_init FROM
+        (SELECT DISTINCT * FROM ((SELECT ticker, '2021' AS year, year2021 AS equity FROM equity_init) 
+            UNION ALL   
+        (SELECT ticker, '2020' AS year, year2020 AS equity FROM equity_init) 
+            UNION ALL 
+        (SELECT ticker, '2019' AS year, year2019 AS equity FROM equity_init)  
+            UNION ALL 
+        (SELECT ticker, '2018' AS year, year2018 AS equity FROM equity_init)  
+            UNION ALL 
+        (SELECT ticker, '2017' AS year, year2017 AS equity FROM equity_init)) AS a) AS b
         '''
     )
 
@@ -545,8 +545,8 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_equity_yearly from
-        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as equity FROM equity_yearly) as a
+        SELECT * INTO reformat_equity_yearly FROM
+        (SELECT DISTINCT ticker, to_char(current_date, 'YYYY') AS year, prev_year_data AS equity FROM equity_yearly) AS a
         '''
     )
 
@@ -555,16 +555,16 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_dividends_init from
-        (select distinct * from ((select ticker, '2021' as year, year2021 as dividends from dividends_init) 
-            union all   
-         (select ticker, '2020' as year, year2020 as dividends from dividends_init) 
-             union all 
-        (select ticker, '2019' as year, year2019 as dividends from dividends_init)  
-            union all 
-        (select ticker, '2018' as year, year2018 as dividends from dividends_init) 
-            union all 
-        (select ticker, '2017' as year, year2017 as dividends from dividends_init)) as a) as b
+        SELECT * INTO reformat_dividends_init FROM
+        (SELECT DISTINCT * FROM ((SELECT ticker, '2021' AS year, year2021 AS dividends FROM dividends_init) 
+            UNION ALL   
+        (SELECT ticker, '2020' AS year, year2020 AS dividends FROM dividends_init) 
+            UNION ALL 
+        (SELECT ticker, '2019' AS year, year2019 AS dividends FROM dividends_init)  
+            UNION ALL 
+        (SELECT ticker, '2018' AS year, year2018 AS dividends FROM dividends_init) 
+            UNION ALL 
+        (SELECT ticker, '2017' AS year, year2017 AS dividends FROM dividends_init)) AS a) AS b
         '''
     )
 
@@ -573,8 +573,8 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-        select * into reformat_dividends_yearly from
-        (SELECT distinct ticker, to_char(current_date, 'YYYY') as year, prev_year_data as dividends FROM dividends_yearly) as a
+        SELECT * INTO reformat_dividends_yearly FROM
+        (SELECT DISTINCT ticker, to_char(current_date, 'YYYY') AS year, prev_year_data AS dividends FROM dividends_yearly) AS a
         '''
     )
 
@@ -585,23 +585,23 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-            select * into financials_join_init from (
-            select iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
-            from 
-            (select ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
-            from 
-            (select ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
-            from (SELECT i.ticker, i.year, i.netincome, a.assets FROM reformat_netincome_init i
-                    left join reformat_assets_init a 
-                            on i.ticker = a.ticker and i.year = a.year) as ia 
-                    left join reformat_liab_init l
-                            on ia.ticker = l.ticker and ia.year = l.year) ial
-                    left join reformat_equity_init e
-                            on ial.ticker = e.ticker and ial.year = e.year) iale
-                    left join reformat_dividends_init d
-                            on iale.ticker = d.ticker and iale.year = d.year
+            SELECT * INTI financials_join_init FROM (
+            SELECT iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
+            FROM 
+            (SELECT ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
+            FROM
+            (SELECT ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
+            FROM (SELECT i.ticker, i.year, i.netincome, a.assets FROM reformat_netincome_init i
+                    LEFT JOIN reformat_assets_init a 
+                            ON i.ticker = a.ticker AND i.year = a.year) AS ia 
+                    LEFT JOIN reformat_liab_init l
+                            ON ia.ticker = l.ticker AND ia.year = l.year) ial
+                    LEFT JOIN reformat_equity_init e
+                            ON ial.ticker = e.ticker AND ial.year = e.year) iale
+                    LEFT JOIN reformat_dividends_init d
+                            ON iale.ticker = d.ticker AND iale.year = d.year
         
-            ) as a
+            ) AS a
             '''
         )
 
@@ -610,23 +610,23 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag, 
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
-            select * into financials_join_yearly from (
-            select iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
-            from 
-            (select ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
-            from 
-            (select ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
-            from (SELECT i.ticker, i.year, i.netincome, a.assets FROM reformat_netincome_yearly i
-                    left join reformat_assets_yearly a 
-                            on i.ticker = a.ticker and i.year = a.year) as ia 
-                    left join reformat_liab_yearly l
-                            on ia.ticker = l.ticker and ia.year = l.year) ial
-                    left join reformat_equity_yearly e
-                            on ial.ticker = e.ticker and ial.year = e.year) iale
-                    left join reformat_dividends_yearly d
-                            on iale.ticker = d.ticker and iale.year = d.year
+            SELECT * INTO financials_join_yearly FROM (
+            SELECT iale.ticker, iale.year, iale.netincome, iale.assets, iale.liability, iale.equity, d.dividends
+            FROM 
+            (SELECT ial.ticker, ial.year, ial.netincome, ial.assets, ial.liability, e.equity
+            FROM 
+            (SELECT ia.ticker, ia.year, ia.netincome, ia.assets, l.liability 
+            FROM (SELECT i.ticker, i.year, i.netincome, a.assets FROM reformat_netincome_yearly i
+                    LEFT JOIN reformat_assets_yearly a 
+                            ON i.ticker = a.ticker AND i.year = a.year) AS ia 
+                    LEFT JOIN reformat_liab_yearly l
+                            ON ia.ticker = l.ticker AND ia.year = l.year) ial
+                    LEFT JOIN reformat_equity_yearly e
+                            ON ial.ticker = e.ticker AND ial.year = e.year) iale
+                    LEFT JOIN reformat_dividends_yearly d
+                            ON iale.ticker = d.ticker AND iale.year = d.year
         
-            ) as a
+            ) AS a
             '''
         )
 
@@ -718,26 +718,26 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
             
-            SELECT concat(ticker, '-', extract(year from to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-', temp.type) as id,
+            SELECT concat(ticker, '-', extract(year FROM to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-', temp.type) AS id,
                 temp.ticker, to_timestamp(temp.year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, 
-                temp.type, temp.value into reformat_financials_ratios_init from 
-                (select * from ((SELECT ticker, year, 'netincome' as type, netincome as value FROM financials_join_init) 
-                union all
-                (SELECT ticker, year, 'assets' as type, assets as value FROM financials_join_init)
-                union all 
-                (SELECT ticker, year, 'liability' as type, liability as value FROM financials_join_init) 
-                union all 
-                (SELECT ticker, year, 'equity' as type, equity as value FROM financials_join_init) 
-                union all 
-                (SELECT ticker, year, 'dividends' as type, dividends as value FROM financials_join_init)
-                union all 
-                (SELECT ticker, year, 'roa' as type, roa as value FROM financials_join_init)
-                union all 
-                (SELECT ticker, year, 'roe' as type, roe as value FROM financials_join_init)
-                union all 
-                (SELECT ticker, year, 'debttoequity' as type, debt_to_equity as value FROM financials_join_init)
-                union all 
-                (SELECT ticker, year, 'networth' as type, networth as value FROM financials_join_init)) as a) as temp;
+                temp.type, temp.value into reformat_financials_ratios_init FROM 
+                (SELECT * FROM ((SELECT ticker, year, 'netincome' AS type, netincome AS value FROM financials_join_init) 
+                UNION ALL
+                (SELECT ticker, year, 'assets' AS type, assets AS value FROM financials_join_init)
+                UNION ALL 
+                (SELECT ticker, year, 'liability' AS type, liability AS value FROM financials_join_init) 
+                UNION ALL
+                (SELECT ticker, year, 'equity' AS type, equity AS value FROM financials_join_init) 
+                UNION ALL 
+                (SELECT ticker, year, 'dividends' AS type, dividends AS value FROM financials_join_init)
+                UNION ALL 
+                (SELECT ticker, year, 'roa' AS type, roa AS value FROM financials_join_init)
+                UNION ALL 
+                (SELECT ticker, year, 'roe' AS type, roe AS value FROM financials_join_init)
+                UNION ALL 
+                (SELECT ticker, year, 'debttoequity' AS type, debt_to_equity AS value FROM financials_join_init)
+                UNION ALL
+                (SELECT ticker, year, 'networth' AS type, networth AS value FROM financials_join_init)) AS a) AS temp;
                 
             
             '''
@@ -750,26 +750,26 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
         sql = '''
             
-            SELECT concat(ticker, '-', extract(year from to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-', temp.type) as id,
+            SELECT concat(ticker, '-', extract(year FROM to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-', temp.type) AS id,
                 temp.ticker, to_timestamp(temp.year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, 
-                temp.type, temp.value into reformat_financials_ratios_yearly from 
-                (select * from ((SELECT ticker, year, 'netincome' as type, netincome as value FROM financials_join_yearly) 
-                union all
-                (SELECT ticker, year, 'assets' as type, assets as value FROM financials_join_yearly)
-                union all 
-                (SELECT ticker, year, 'liability' as type, liability as value FROM financials_join_yearly) 
-                union all 
-                (SELECT ticker, year, 'equity' as type, equity as value FROM financials_join_yearly) 
-                union all 
-                (SELECT ticker, year, 'dividends' as type, dividends as value FROM financials_join_yearly)
-                union all 
-                (SELECT ticker, year, 'roa' as type, roa as value FROM financials_join_yearly)
-                union all 
-                (SELECT ticker, year, 'roe' as type, roe as value FROM financials_join_yearly)
-                union all 
-                (SELECT ticker, year, 'debttoequity' as type, debt_to_equity as value FROM financials_join_yearly)
-                union all 
-                (SELECT ticker, year, 'networth' as type, networth as value FROM financials_join_yearly)) as a) as temp;
+                temp.type, temp.value into reformat_financials_ratios_yearly FROM 
+                (SELECT * FROM ((SELECT ticker, year, 'netincome' AS type, netincome AS value FROM financials_join_yearly) 
+                UNION ALL
+                (SELECT ticker, year, 'assets' AS type, assets AS value FROM financials_join_yearly)
+                UNION ALL 
+                (SELECT ticker, year, 'liability' AS type, liability AS value FROM financials_join_yearly) 
+                UNION ALL
+                (SELECT ticker, year, 'equity' AS type, equity AS value FROM financials_join_yearly) 
+                UNION ALL 
+                (SELECT ticker, year, 'dividends' AS type, dividends AS value FROM financials_join_yearly)
+                UNION ALL 
+                (SELECT ticker, year, 'roa' AS type, roa AS value FROM financials_join_yearly)
+                UNION ALL 
+                (SELECT ticker, year, 'roe' AS type, roe AS value FROM financials_join_yearly)
+                UNION ALL 
+                (SELECT ticker, year, 'debttoequity' AS type, debt_to_equity AS value FROM financials_join_yearly)
+                UNION ALL
+                (SELECT ticker, year, 'networth' AS type, networth AS value FROM financials_join_yearly)) AS a) AS temp;
                 
             
             '''
@@ -785,9 +785,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
             
             UPDATE inflation_init SET year = concat(year, '-12-31');
             UPDATE inflation_init SET year = to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC';
-            select concat(extract(year from to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-inflation') as id, to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, inflation
-            into inflation_init_key
-            from inflation_init;
+            SELECT concat(extract(year FROM to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-inflation') as id, to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, inflation
+            INTO inflation_init_key
+            FROM inflation_init;
                         
             
             '''
@@ -801,9 +801,9 @@ def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
         sql = '''
             UPDATE inflation_yearly SET year = concat(year, '-12-31');
             UPDATE inflation_yearly SET year = to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC';
-            select concat(extract(year from to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-inflation') as id, to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, inflation
-            into inflation_yearly_key
-            from inflation_yearly;
+            SELECT concat(extract(year from to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC'), '-inflation') as id, to_timestamp(year, 'YYYY-MM-DD hh24:mi:ss') at time zone 'Etc/UTC' as year, inflation
+            INTO inflation_yearly_key
+            FROM inflation_yearly;
                         
             
             '''
