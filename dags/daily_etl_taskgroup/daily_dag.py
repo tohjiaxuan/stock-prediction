@@ -14,7 +14,7 @@ from extract_taskgroup import build_extract_taskgroup
 from gcs_taskgroup import build_gcs_taskgroup
 from stage_taskgroup import build_stage_taskgroup
 from transform_taskgroup import build_transform_taskgroup
-from postgres_processing_daily import build_daily_postgres_taskgroup
+from daily_postgres_taskgroup import build_daily_postgres_taskgroup
 from load_taskgroup import build_load_taskgroup
 
 import json
