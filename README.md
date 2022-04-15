@@ -3,14 +3,14 @@
 # General Configurations needed
 1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
 2. Create GCS bucket on Google Cloud Platform
-  1. Set location to asia-southeast1 (Singapore)
-  2. Turn off object versioning, do not choose a retention policy and set encryption type to be google-managed key
-  3. Set public access to be not public
-  4. Developer should set the permissions by giving corresponding users the right access and role
+    1. Set location to asia-southeast1 (Singapore)
+    2. Turn off object versioning, do not choose a retention policy and set encryption type to be google-managed key
+    3. Set public access to be not public
+    4. Developer should set the permissions by giving corresponding users the right access and role
 
 3. In the Airflow webserver, head to `Admin` > `Connections`. 
-  1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
-  2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
+    1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
+    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
 
 # Steps to configure the sending of emails on task failure
 ### Generate Google App password: 
