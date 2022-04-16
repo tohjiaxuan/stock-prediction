@@ -125,4 +125,4 @@ Port: 5432
 # Run DAGs
 1. Turn on all the DAGs but do not trigger them yet 
 2. Trigger `yearly_dag_etl` and `daily_financial_news_dag` (order does not matter)
-**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearl_dag_etl` upon completion
+**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearly_dag_etl` upon completion
