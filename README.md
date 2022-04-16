@@ -8,21 +8,16 @@ Deliverables for this project includes:
 4. PostgreSQL database used to conduct transformations in times of failure
 5. Data Warehouse hosted in BigQuery
 
-# Project Directory
+# File Directory to be followed in VM
 ```
-├── Experimental Code
-│   └── ...
 ├── dags
-│   └── archive
-│       ├── ...
-│   └── daily_etl_taskgroup
-│       ├── daily_dag.py
-│       ├── extract_taskgroup.py
-│       ├── gcs_taskgroup.py
-│       ├── load_taskgroup.py
-│       ├── daily_postgres_taskgroup.py
-│       ├── stage_taskgroup.py
-│       ├── transform_taskgroup.py
+│   └── daily_dag.py
+│   └── extract_taskgroup.py
+│   └── gcs_taskgroup.py
+│   └── load_taskgroup.py
+│   └── daily_postgres_taskgroup.py
+│   └── stage_taskgroup.py
+│   └── transform_taskgroup.py
 │   └── news_etl_taskgroup
 │       ├── daily_financial_news.py
 │       ├── extract_taskgroup.py
@@ -39,22 +34,23 @@ Deliverables for this project includes:
 │       ├── D_interest_rate.sql
 │       ├── F_news.sql
 │       ├── F_stock.sql
-│   └── yearly_etl_taskgroup
-│       ├── financials_dwh_schemas.py
-│       ├── financials_extract_taskgroup.py
-│       ├── financials_gcs_taskgroup.py
-│       ├── financials_load_taskgroup.py
-│       ├── financials_postgres_taskgroup.py
-│       ├── financials_schema_taskgroup.py
-│       ├── financials_stage_taskgroup.py
-│       ├── financials_transform_taskgroup.py
-│       ├── yearly_dag_etl.py
+│   └── financials_dwh_schemas.py
+│   └── financials_extract_taskgroup.py
+│   └── financials_gcs_taskgroup.py
+│   └── financials_load_taskgroup.py
+│   └── financials_postgres_taskgroup.py
+│   └── financials_schema_taskgroup.py
+│   └── financials_stage_taskgroup.py
+│   └── financials_transform_taskgroup.py
+│   └── yearly_dag_etl.py
 │   └── sti.csv
 ```
 
-# General Configurations needed
-1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
-2. Create GCS bucket on Google Cloud Platform (https://console.cloud.google.com/)
+# General Configurations before running DAGs
+1. Set up Apache Airflow as per normal (create your own account etc)
+2. Make use of the requirements.txt file to pip install all the packages that are required other than Python
+3. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
+4. Create GCS bucket on Google Cloud Platform (https://console.cloud.google.com/)
     1. Set location to asia-southeast1 (Singapore)
     2. Turn off object versioning, do not choose a retention policy and set encryption type to be google-managed key
     3. Set public access to be not public
@@ -65,7 +61,7 @@ Deliverables for this project includes:
     1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
     2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. More details can be found below
 
-4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Sinagpore)` and save the query setting
+4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
 
 # Steps to configure the sending of emails on task failure
 ### Generate Google App password: 
@@ -126,3 +122,8 @@ Schema: postgres_db
 Login: postgres_local
 
 Port: 5432
+
+# Run DAGs
+1. Turn on all the DAGs but do not trigger them yet 
+2. Trigger `yearly_dag_etl` and `daily_financial_news` (order does not matter)
+**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearl_dag_etl` upon completion
