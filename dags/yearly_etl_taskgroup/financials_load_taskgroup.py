@@ -1,7 +1,9 @@
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
+from airflow.operators.bash_operator import BashOperator
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.providers.google.cloud.operators.bigquery import BigQueryExecuteQueryOperator
+from airflow.operators.python import BranchPythonOperator
 from airflow.utils.task_group import TaskGroup
 from google.cloud import bigquery
 from google.cloud import storage
@@ -29,12 +31,39 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
     Parameters
     ----------
     dag: An airflow DAG
+
     Returns
     -------
     taskgroup
         A taskgroup that contains all the functions and operators
     """
     financials_load_taskgroup = TaskGroup(group_id = 'financials_load_tg')
+
+    def check_to_load_or_skip(ti):
+        """Checks whether to load data into the data warehouse, or to skip loading. 
+        Parameters
+        ----------
+        ti
+
+        Returns
+        -------
+        task id
+           Tells dag which part to take - load data or skip loading
+        """
+        instruction = ti.xcom_pull(task_ids='dag_path')
+        if instruction == 'start_extract_task':
+            return 'd_financials_table'
+        else:
+            return 'do_not_load'
+
+    # BranchPythonOperator tells DAG which path to take
+    load_path = BranchPythonOperator(
+        task_id = 'load_path',
+        python_callable = check_to_load_or_skip,
+        do_xcom_push = False,
+        provide_context = True,
+        dag = dag
+    )
 
     # Load data into D_FINANCIALS Dimension table
     d_financials_table = BigQueryExecuteQueryOperator(
@@ -49,6 +78,7 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         create_disposition="CREATE_IF_NEEDED",
         write_disposition="WRITE_APPEND",
         sql = './sql/D_financials.sql',
+        trigger_rule = 'one_success',
         dag = dag
     )
 
@@ -65,17 +95,29 @@ def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
         create_disposition="CREATE_IF_NEEDED",
         write_disposition="WRITE_APPEND",
         sql = './sql/D_inflation.sql',
-        dag = dag
-    )
-
-    # Kickstarts Loading
-    start_loading = DummyOperator(
-        task_id = 'start_loading', 
+        trigger_rule = 'one_success',
         dag = dag
     )
     
+    # signal to not load
+    do_not_load = BashOperator(
+        task_id="do_not_load",
+        bash_command="echo do_not_load",
+        dag=dag
+    )
+
+    # signal the end of task group
+    end = BashOperator(
+        task_id="end",
+        bash_command="echo end",
+        trigger_rule="all_done",
+        dag=dag
+    )
+
     # TASK DEPENDENCIES
 
-    start_loading >> [d_financials_table, d_inflation_table]
+    load_path >> [d_financials_table, do_not_load]
+    d_financials_table >> d_inflation_table >> end
+    do_not_load >> end
     
     return financials_load_taskgroup
