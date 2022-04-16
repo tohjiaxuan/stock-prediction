@@ -3,8 +3,8 @@ from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.models import DAG
 from airflow.models import TaskInstance
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.python_operator import PythonOperator
 from airflow.operators.python import BranchPythonOperator
+from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
 from google.cloud import bigquery
 from google.cloud import storage
@@ -84,7 +84,7 @@ with DAG(
     dag_path = BranchPythonOperator(
         task_id="dag_path_task",
         python_callable=check_stocks,
-        do_xcom_push=False,
+        do_xcom_push=True,
         provide_context=True,
         dag=dag,
     )

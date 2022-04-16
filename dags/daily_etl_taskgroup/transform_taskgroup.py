@@ -152,7 +152,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         """
         bq_client = bigquery.Client()
         query = """SELECT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_interest_rate`
-        ORDER BY `Date`"""
+        ORDER BY `Date` DESC"""
         df = bq_client.query(query).to_dataframe()
         logging.info('Queried from interest rate staging table')
 
@@ -171,7 +171,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         """
         bq_client = bigquery.Client()
         query = """SELECT `Date` FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_exchange_rate`
-        ORDER BY `Date`"""
+        ORDER BY `Date` DESC"""
         df = bq_client.query(query).to_dataframe()
         logging.info('Queried from ex rate staging table')
 
@@ -225,18 +225,21 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         # To ensure index is the same
         int_df = int_df.reset_index(drop=True)
         ex_df = ex_df.reset_index(drop=True)
+
+        dates =  ex_df['Date'].to_list()
+        print(int_df)
         
         # If interest date has more data, we start from first row
         if (len(ex_df) < len(int_df)):
             int_df = int_df.iloc[1:]
         
-        lag_int = int_df.join(ex_df)
-        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'}) # Ensure data type
+        lag_int = int_df
+        lag_int['Date'] = dates
 
         # Rename columns to ensure consistency
         if 'date' in lag_int.columns and 'inr_id' in lag_int.columns:
             lag_int.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
-        
+
         logging.info("Sent lagged date interest rate data to GCS")
         lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
@@ -376,40 +379,49 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     #############################
     # Transformation in Staging #
     #############################
-    # Remove Duplicates exchange rate
+    # Remove duplicates and cast data types exchange rate
     distinct_exchange = BigQueryOperator(
         task_id = 'distinct_exchange_task',
         use_legacy_sql = False,
         sql = f'''
                 CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_exchange_rate`
                 AS SELECT DISTINCT PARSE_TIMESTAMP('%Y-%m-%d', end_of_day) AS Date,
-                CONCAT(temp.end_of_day, '-EXR') AS EXR_ID, *
-                EXCEPT (
-                    end_of_day, preliminary, timestamp
-                ),
-                preliminary AS ex_rate_preliminary, timestamp AS ex_rate_timestamp
-                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_exchange_rates` AS temp
+                CONCAT(temp.end_of_day, '-EXR') AS EXR_ID,
+                CAST(eur_sgd AS STRING) AS eur_sgd, CAST(gbp_sgd AS STRING) AS gbp_sgd,
+                CAST(usd_sgd AS STRING) AS usd_sgd, CAST(aud_sgd AS STRING) AS aud_sgd,
+                CAST(cad_sgd AS STRING) AS cad_sgd, CAST(cny_sgd_100 AS STRING) AS cny_sgd_100,
+                CAST(hkd_sgd_100 AS STRING) AS hkd_sgd_100, CAST(inr_sgd_100 AS STRING) AS inr_sgd_100,
+                CAST(idr_sgd_100 AS STRING) AS idr_sgd_100, CAST(jpy_sgd_100 AS STRING) AS jpy_sgd_100,
+                CAST(krw_sgd_100 AS STRING) AS krw_sgd_100, CAST(myr_sgd_100 AS STRING) AS myr_sgd_100,
+                CAST(twd_sgd_100 AS STRING) AS twd_sgd_100, CAST(nzd_sgd AS STRING) AS nzd_sgd,
+                CAST(php_sgd_100 AS STRING) AS php_sgd_100, CAST(qar_sgd_100 AS STRING) AS qar_sgd_100,
+                CAST(sar_sgd_100 AS STRING) AS sar_sgd_100, CAST(chf_sgd AS STRING) AS chf_sgd,
+                CAST(thb_sgd_100 AS STRING) AS thb_sgd_100, CAST(aed_sgd_100 AS STRING) AS aed_sgd_100,
+                CAST(vnd_sgd_100 AS STRING) AS vnd_sgd_100, 
+                CAST(preliminary AS STRING) AS ex_rate_preliminary,
+                CAST(timestamp AS STRING) AS ex_rate_timestamp
+                from `{PROJECT_ID}.{STAGING_DATASET}.init_exchange_rates` as temp
         ''',
         dag = dag,
     )
 
-    # Reformat and remove duplicates interest rate
+    # Cast data types and remove duplicates interest rate
     distinct_interest = BigQueryOperator(
         task_id = 'distinct_interest_task',
         use_legacy_sql = False,
         sql = f'''
-        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_interest_rate` 
-        AS SELECT DISTINCT PARSE_TIMESTAMP('%Y-%m-%d', end_of_day) AS Date, 
-        CONCAT(temp.end_of_day, '-INR') AS INR_ID, *
-        EXCEPT(
-            end_of_day, preliminary, timestamp,
-            interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
-            interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate,
-            on_rmb_facility_rate
-        ),
-        preliminary AS int_rate_preliminary, timestamp AS int_rate_timestamp,
-        CAST(on_rmb_facility_rate AS STRING) AS on_rmb_facility_rate,
-        FROM `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates` AS temp
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_interest_rate` 
+                AS SELECT DISTINCT PARSE_TIMESTAMP('%Y-%m-%d', end_of_day) AS Date, 
+                CONCAT(temp.end_of_day, '-INR') AS INR_ID, *
+                EXCEPT(
+                    end_of_day, preliminary, timestamp,
+                    interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
+                    interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate,
+                    on_rmb_facility_rate
+                ),
+                preliminary AS int_rate_preliminary, timestamp AS int_rate_timestamp,
+                CAST(on_rmb_facility_rate AS STRING) AS on_rmb_facility_rate,
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates` AS temp
         ''',
         dag = dag
     )
@@ -500,6 +512,31 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    cast_int_rate = BigQueryOperator(
+        task_id = 'cast_int_rate_task',
+        use_legacy_sql = False,
+        sql = f'''
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.casted_interest_rate` 
+                AS SELECT DISTINCT Actual_Date, INR_ID,
+                CAST(aggregate_volume AS FLOAT64) AS aggregate_volume,
+                CAST(calculation_method AS STRING) AS calculation_method,
+                CAST(comp_sora_1m AS FLOAT64) AS comp_sora_1m, CAST(comp_sora_3m AS FLOAT64) AS comp_sora_3m,
+                CAST(comp_sora_6m AS FLOAT64) AS comp_sora_6m,
+                CAST(highest_transaction AS FLOAT64) AS highest_transaction,
+                CAST(lowest_transaction AS FLOAT64) AS lowest_transaction,
+                CAST(on_rmb_facility_rate AS STRING) AS on_rmb_facility_rate,
+                CAST(published_date AS STRING) AS published_date,
+                CAST(sor_average AS FLOAT64) AS sor_average,
+                CAST(sora AS FLOAT64) AS sora, CAST(sora_index AS FLOAT64) AS sora_index,
+                CAST(standing_facility_borrow AS STRING) AS standing_facility_borrow,
+                CAST(standing_facility_deposit AS STRING) AS standing_facility_deposit,
+                CAST(int_rate_preliminary AS INTEGER) AS int_rate_preliminary, 
+                CAST(int_rate_timestamp AS STRING) AS int_rate_timestamp,
+                `Date`
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.final_interest_rate` AS temp
+        '''
+    )
+
     # Combine gold, silver and crude oil dataframes into a commodities dataframe
     combine_commodities = PythonOperator(
         task_id = 'commodities_task',
@@ -524,7 +561,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     ############################
     [distinct_exchange, distinct_interest, distinct_stock_prices, distinct_gold, distinct_silver, distinct_crude_oil] 
     distinct_stock_prices >> sma_stock >> load_sma
-    distinct_interest >> lag_int >> load_lag_interest
+    distinct_interest >> lag_int >> load_lag_interest >> cast_int_rate
     [distinct_exchange, load_lag_interest, load_sma] 
     [distinct_gold, distinct_silver, distinct_crude_oil] >> combine_commodities >> load_commodities
 
