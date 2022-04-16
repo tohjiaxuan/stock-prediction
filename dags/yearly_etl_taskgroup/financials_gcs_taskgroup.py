@@ -13,6 +13,7 @@ import os
 import pandas as pd
 import requests
 import urllib.request
+
 logging.basicConfig(level=logging.INFO)
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -26,6 +27,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_gcs_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup to push extracted data to Google Cloud Storage.
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_gcs_taskgroup = TaskGroup(group_id = 'financials_gcs_tg')
 
     ############################

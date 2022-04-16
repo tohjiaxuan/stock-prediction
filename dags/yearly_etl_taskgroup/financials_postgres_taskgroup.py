@@ -21,6 +21,7 @@ import pandas as pd
 import pandas_gbq
 import requests
 import urllib.request
+
 logging.basicConfig(level=logging.INFO)
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -34,6 +35,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_postgres_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for transformation on-premise using Postgresql tables. 
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_postgres_taskgroup = TaskGroup(group_id = 'financials_postgres_tg')
 
     def execute_query_with_hook(query):
