@@ -444,7 +444,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     end_daily_transformation_postgres = BashOperator(
         task_id="end_daily_transformation_postgres",
         bash_command="echo end_daily_transformation_postgres",
-        trigger_rule="none_skipped",
+        trigger_rule="all_done",
         dag=dag
     )
 
