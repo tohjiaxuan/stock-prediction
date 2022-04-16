@@ -1,56 +1,71 @@
 from airflow.models import DAG
 from airflow.models import TaskInstance
-from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.python import BranchPythonOperator
+from airflow.utils.task_group import TaskGroup
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from google.cloud import storage
 from google.cloud import bigquery
-from airflow.utils.task_group import TaskGroup
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoSuchElementException, ElementClickInterceptedException, ElementNotInteractableException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from xvfbwrapper import Xvfb
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 from webdriver_manager.firefox import GeckoDriverManager
-from selenium import webdriver
-from pyvirtualdisplay import Display
+from xvfbwrapper import Xvfb
 
 import json
-import os
+import logging
 import numpy as np
+import os
 import pandas as pd
 import requests
 import time
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
-storage_client = storage.Client()
-bq_client = bigquery.Client()
-bucket = storage_client.get_bucket('stock_prediction_is3107')
-STAGING_DATASET = 'stock_prediction_staging_dataset'
-PROJECT_ID = 'stockprediction-344203'
-DWH_DATASET = 'stock_prediction_datawarehouse'
 
-def build_extract_taskgroup(dag: DAG) -> TaskGroup:
-    extract_taskgroup = TaskGroup(group_id = 'extract_taskgroup')
+logging.basicConfig(level=logging.INFO)
+
+def build_extract_news_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for extraction of data from various sources
+
+    Parameters
+    ----------
+    dag: An airflow DAG
+
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
+    extract_news_taskgroup = TaskGroup(group_id = 'extract_news_taskgroup')
 
     # Load tickers that will be used
     tickers_df = pd.read_csv('/home/airflow/airflow/dags/sti.csv')
+
+    ############################
+    # Define Python Functions  #
+    ############################
 
     #################################
     # Helper Functions for Scrape   #
     # (Initialisation)              #
     #################################
 
-    # Function to clean the dates and titles
     def clean_df(df_final):
+        """Helper function to clean the dates and titles
+
+        Parameters
+        ----------
+        df_final: dataframe
+            Dataframe of extracted news
+
+        Returns
+        -------
+        dataframe
+            Cleaned dataframe of extracted news
+        """
         cleaned_time = []
         current_time = datetime.today()
         for t in df_final['Date']:
@@ -81,14 +96,12 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         last_update = current_time + relativedelta(years=-date)
                 else:
                     last_update = t 
-                    
                 last_update = last_update.strftime('%Y-%m-%d') 
                 cleaned_time.append(last_update)
         df_final['Date'] = cleaned_time   
         df_final.reset_index(drop=True, inplace = True)  
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
-        print('clean successfully')  
         return df_final
 
     #################################
@@ -97,6 +110,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     #################################
 
     def clean_date(date):
+        """Helper function to clean the dates
+
+        Parameters
+        ----------
+        date: str
+            Relative date of each extracted news
+
+        Returns
+        -------
+        date
+            Exact date of each extracted news based on current date
+        """
         date = date.strip('(edited) ')
         current_time = datetime.today()
         if 'minute' in date:
@@ -122,26 +147,45 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 date = current_time + relativedelta(years=-date)
         return date
 
-    # Function to scrape news that > latest date from dwh
     def check_date(df, pulled_date):
+        """Helper function to filter the dataframe to get updated news
+
+        Parameters
+        ----------
+        df: dataframe
+            Dataframe of extracted news
+        pulled_date: str
+            The most recent date present in DWH
+
+        Returns
+        -------
+        dataframe
+            Contains extracted news that are greater than the pulled date
+        """
         df = df[(df['Date'] > pulled_date)]
-        print('check date', len(df))
         df.reset_index(drop=True, inplace = True) 
         return df
 
-    #################################
-    # Functions for Scrape          #
-    #################################
+    ###########################
+    # Scraping Initialisation #
+    ###########################
 
-    # Function to scrape yahoo finance news (initialise)
     def yahoofinance_scraping_data_init():
+        """Function to obtain news articles from Yahoo Finance via Selenium and Beauitful Soup
+
+        Returns
+        -------
+        dataframe
+            Contains details for each news article from initial date till latest date
+        """
+        # Scraping initialisation
         vdisplay = Xvfb()
         vdisplay.start()
         options = webdriver.FirefoxOptions()
         options.add_argument('--headless')
         driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
 
-        # scrape news for each ticker
+        # Scrape news for each ticker
         start = 'https://sg.finance.yahoo.com/quote/'
         end = '/news'
         df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
@@ -160,16 +204,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 while True:
                     # Scroll down to bottom
                     driver.execute_script("window.scrollTo(0,document.documentElement.scrollHeight);")
-
                     # Wait to load page
                     time.sleep(SCROLL_PAUSE_TIME)
-
                     # Calculate new scroll height and compare with last scroll height
                     new_height = driver.execute_script("return document.documentElement.scrollHeight")
                     if new_height == last_height:
                         break
                     last_height = new_height
-
 
                 test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
                 for i in range(len(test)):
@@ -177,20 +218,16 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                     date = ''
                     title = ''
                     index = i+1
-
-                    # get links
+                    # Get links
                     elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
                     link =elems_links.get_attribute("href")
-
-                    # get titles
+                    # Get titles
                     elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
                     title =elems_titles.text
-
-                    # get dates
+                    # Get dates
                     try:
                         elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
                         date = elems_dates.text
-                    # ad
                     except NoSuchElementException as e:
                         pass
                     finally: 
@@ -199,11 +236,11 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             except TimeoutException as e:
                 pass
 
-        print('scrape successfully')
+        logging.info('Yahoo Finance scrape successfully')
         driver.quit()
         df_final = clean_df(df_final)
 
-        # remove row if it is ad
+        # Remove row if it is an ad
         df_final.replace("", np.nan, inplace=True)
         df_final.dropna(subset=['Date'], inplace = True)
         df_final['Source'] = 'Yahoo Finance News'
@@ -212,13 +249,26 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         return df_final
 
     def yahoofinance_scraping_data_daily(pulled_date):
+        """Function to obtain news articles from Yahoo Finance via Selenium and Beauitful Soup
+
+        Parameters
+        ----------
+        pulled_date: str
+            The most recent date present in DWH
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article since the last date in dwh
+        """
+        # Scraping initialisation
         vdisplay = Xvfb()
         vdisplay.start()
         options = webdriver.FirefoxOptions()
         options.add_argument('--headless')
         driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
 
-        # scrape news for each ticker
+        # Scrape news for each ticker
         start = 'https://sg.finance.yahoo.com/quote/'
         end = '/news'
         df_final = pd.DataFrame(columns =['Ticker', 'Title', 'Date', 'Link'])
@@ -239,16 +289,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 while True:
                     # Scroll down to bottom
                     driver.execute_script("window.scrollTo(0,document.documentElement.scrollHeight);")
-
                     # Wait to load page
                     time.sleep(SCROLL_PAUSE_TIME)
-
                     # Calculate new scroll height and compare with last scroll height
                     new_height = driver.execute_script("return document.documentElement.scrollHeight")
                     if new_height == last_height:
                         break
                     last_height = new_height
-
                 test = driver.find_elements(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li[*]/div/div/div[*]/h3/a')
                 
                 for i in range(len(test)):
@@ -256,8 +303,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                     date = ''
                     title = ''
                     index = i+1
-                    
-                    # get dates
+                    # Get dates
                     try:
                         elems_dates = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/div/span[2]')
                         date = elems_dates.text
@@ -265,36 +311,33 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         pass
                     finally: 
                         date = clean_date(date)
+
                     try: 
                         date = datetime.datetime.strptime(date, '%Y-%m-%d')
-                    # is an ad
                     except AttributeError as e:
                         pass
-                    # scrape news that > latest date from dwh
+                    # Scrape news that > latest date from dwh
                     finally:
                         if date == '':
                             pass
                         elif date < datetime.strptime(pulled_date, '%Y-%m-%d'):
                             break
 
-                        # get links
+                        # Get links
                         elems_links = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
                         link =elems_links.get_attribute("href")
-
-                        # get titles
+                        # Get titles
                         elems_titles = driver.find_element(By.XPATH, '//*[contains(@id, "NewsStream-0-Stream")]/ul/li['+str(index)+']/div/div/div[*]/h3/a')
-                        title =elems_titles.text
-
+                        title = elems_titles.text
                         row = [ticker, title, date, link]
                         df_final.loc[len(df_final)] = row
-
             except TimeoutException as e:
                 pass
 
-        print('scrape successfully')
+        logging.info('Yahoo Finance scrape successfully')
         driver.quit()
         
-        # remove row if it is ad
+        # Remove row if it is ad
         df_final.replace("", np.nan, inplace=True)
         df_final.dropna(subset=['Date'], inplace = True)
         df_final['Source'] = 'Yahoo Finance News'
@@ -304,8 +347,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final.reset_index(drop=True, inplace = True) 
         return df_final
 
-    # Function to scrape sginvestor
     def helper_sginvestor():
+        """Helper function to obtain news articles from SG Investor via Selenium and Beauitful Soup
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article 
+        """
         # Obtain page URLs (only 8 pages)
         page_url_list = ['https://sginvestors.io/news/publishers/latest/'] # 1st page
         for i in range(2,9): # for 8 pages
@@ -318,6 +367,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         url = []
         num_pages = 1
 
+        # Scraping initialisation
         vdisplay = Xvfb()
         vdisplay.start()
         options = webdriver.FirefoxOptions()
@@ -330,29 +380,23 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             page_soup = BeautifulSoup(driver.page_source,"html.parser")
             print('Page Number: ', num_pages)
             print('Page URL: ', page_url)
-            
-            # news_source
+            # Get news_source
             for source in page_soup.findAll('img',{'class':'newschannelimg'}):
                 source_link = source['src']
                 news_source.append(source_link)
-            
-            # news header / title
+            # Get news header / title
             for header in page_soup.findAll('div',{'class':'newstitle'}):
                 news_header.append(header.text)
-                
-            # updated sg time
+            # Get updated sg time
             for time in page_soup.findAll('div',{'class':'updatedsgtime'}):
                 updated_sg_time.append(time.text)
-            
-            # url
+            # Get url
             link_container = page_soup.find('div',{'id':'articlelist'})
             for news_url in link_container.findAll('a',{'rel':'nofollow'}):
                 href = news_url.get('href')
                 url.append(href)
-            
             num_pages += 1
-            print('---------')
-        print('---Scraping done!!---')
+        logging.info('Sg Investor scrape successfully')
         driver.quit()
 
         # Clean up Source information
@@ -375,27 +419,51 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                         'Source': cleaned_source,
                         'Comments': 'Featured on SGInvestors'}, columns=cols)
         df_final.insert(0, 'Ticker', 'None (General News)')
-        print('len', len(df_final))
         return df_final
 
     def sginvestor_scraping_data_init():
+        """Function to obtain news articles from SG Investor via Selenium and Beauitful Soup
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article from initial date till latest date
+        """
         df_final = helper_sginvestor()
         df_final = clean_df(df_final)
         return df_final
 
     def sginvestor_scraping_data_daily(pulled_date):
+        """Function to obtain news articles from SG Investor via Selenium and Beauitful Soup
+
+        Parameters
+        ----------
+        pulled_date: str
+            The most recent date present in DWH
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article since the last date in dwh
+        """
         df_final = helper_sginvestor()
         # Cleaning
         df_final['Date'] = df_final['Date'].apply(clean_date)
         df_final['Date'] = df_final['Date'].dt.strftime('%Y-%m-%d')
-        # only scrape latest news
+        # Only scrape latest news
         df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
         return df_final
 
-    # Function to scrape sg investor blog 
     def helper_sginvestor_blog():
+        """Helper function to obtain news articles from SG Investor Blog via Selenium and Beauitful Soup
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article 
+        """
         # Obtain page URLs
         page_url_list = ['https://research.sginvestors.io/p/bloggers-say.html'] # 1st page
         for i in range(2,7): # for 6 pages
@@ -410,9 +478,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         url = []
         num_pages = 1
 
+        # Scraping initialisation
         vdisplay = Xvfb()
         vdisplay.start()
-
         options = webdriver.FirefoxOptions()
         options.add_argument('--headless')
         driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(), options=options)
@@ -423,21 +491,17 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             page_soup = BeautifulSoup(driver.page_source,"html.parser")
             print('Page Number: ', num_pages)
             print('Page URL: ', page_url)
-            
-            # source
+            # Get source
             for src in page_soup.findAll('div',{'class':'blogtitle'}):
                 src_span = src.find('span')
                 source.append(src_span.text)
-                
-            # author
+            # Get author
             for auth in page_soup.findAll('div',{'class':'authorname'}):
                 author.append(auth.text)
-            
-            # title
+            # Get title
             for ttl in page_soup.findAll('div',{'class':'title'}):
                 title.append(ttl.text)
-                
-            # description - only Latest Articles have this
+            # Get description - only Latest Articles have this
             if num_pages == 1:
                 for i in range(10):                 
                     description.append('')
@@ -456,7 +520,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 for time in page_soup.findAll('div',{'class':'updatedsgtime'}):
                     updated_sg_time.append(time.text)
             
-            # url
+            # Get url
             for url_item in page_soup.findAll('article',{'class':'bloggeritem'}):
                 all_link_lst = url_item.get('onclick')
                 link_lst = all_link_lst[3:-2].split(',')
@@ -464,10 +528,9 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 http = [string.replace('"', '') for string in http_lst]
                 http_clean = [string.replace("'", "") for string in http]
                 url.append(http_clean[-1].strip(" "))
-            
             num_pages += 1
-            print('---------')
-        print('---Scraping done!!---')
+
+        logging.info('Sg Investor Blog scrape successfully')
         driver.quit()
 
         # Convert to DataFrame
@@ -480,17 +543,36 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         df_final.insert(0, 'Ticker', 'None (General News)')
         print('len', len(df_final))
 
-        # drop rows without date
+        # Drop rows without date
         df_final.replace("", np.nan, inplace=True)
         df_final.dropna(subset=['Date'], inplace = True)   
         return df_final
 
     def sginvestor_blog_scraping_data_init():
+        """Function to obtain news articles from SG Investor Blog via Selenium and Beauitful Soup
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article from initial date till latest date
+        """
         df_final = helper_sginvestor_blog()
         df_final = clean_df(df_final)
         return df_final     
 
     def sginvestor_blog_scraping_data_daily(pulled_date):
+        """Function to obtain news articles from SG Investor Blog via Selenium and Beauitful Soup
+
+        Parameters
+        ----------
+        pulled_date: str
+            The most recent date present in DWH
+
+        Returns
+        -------
+        dataframe
+            Contain details for each news article since the last date in dwh
+        """
         df_final = helper_sginvestor_blog()
         # Cleaning
         df_final['Date'] = df_final['Date'].apply(clean_date)
@@ -505,9 +587,18 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
     #############
 
     def if_f_news_exists():
+        """Check if News Fact Table is present in DWHS
+
+            Returns
+            -------
+            bool
+        """
         try:
+            # Establish connection with BigQuery 
             bq_client = bigquery.Client()
             query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_NEWS`'
+
+            # Convert queried result to df
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
@@ -518,81 +609,100 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             return False
 
     def get_recent_date():
+        """Get the most recent date present in News Fact Table
+
+        Returns
+        -------
+        str
+            The most recent date present in DWH, inform users to extract data after that date
+        """
+        # Establish connection with bigquery
         bq_client = bigquery.Client()
         query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_NEWS`"
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         string_date = np.datetime_as_string(recent_date, unit='D')
-        print('string_date', string_date)
         return string_date
 
     def scrape_yahoofinance():
+        """Get Yahoo Finance news based on condiitons
+
+        Returns
+        -------
+        dataframe
+            Contain Yahoo Finance news 
+        """
         check_dwh = if_f_news_exists()
         if check_dwh:
             pulled_date = get_recent_date()
             yahoofinance_df = yahoofinance_scraping_data_daily(pulled_date)
-            print("Scrape yahoofinance daily")
+            logging.info("Scrape Yahoo Finance daily")
         else: 
             yahoofinance_df = yahoofinance_scraping_data_init()
-            print("Scrape yahoofinance init")
+            logging.info("Scrape Yahoo Finance init")
         return yahoofinance_df
 
     def scrape_sginvestor():
+        """Get SG Investor news based on condiitons
+
+        Returns
+        -------
+        dataframe
+            Contain SG Investor news 
+        """
         check_dwh = if_f_news_exists()
         if check_dwh:
             pulled_date = get_recent_date()
             sginvestor_df = sginvestor_scraping_data_daily(pulled_date)
-            print("Scrape sginvestor daily")
+            logging.info("Scrape SG Investor daily")
         else: 
             sginvestor_df = sginvestor_scraping_data_init()
-            print("Scrape sginvestor init")
+            logging.info("Scrape SG Investor init")
         return sginvestor_df
 
     def scrape_sginvestor_blog():
+        """Get SG Investor Blog news based on condiitons
+
+        Returns
+        -------
+        dataframe
+            Contain SG Investor Blog news 
+        """
         check_dwh = if_f_news_exists()
         if check_dwh:
             pulled_date = get_recent_date()
             sginvestor_blog_df = sginvestor_blog_scraping_data_daily(pulled_date)
-            print("Scrape sginvestor blog daily")
+            plogging.info("Scrape SG Investor Blog daily")
         else: 
             sginvestor_blog_df = sginvestor_blog_scraping_data_init()
-            print("Scrape sginvestor blog init")
+            logging.info("Scrape SG Investor Blog init")
         return sginvestor_blog_df
 
-    ########################
-    # Airflow Operators    #
-    ########################
+    ####################
+    # Define Operators #
+    ####################
 
+    # Scraping Yahoo Finance
     yahoofinance_scraping = PythonOperator(
         task_id = 'yahoofinance_scraping',
         python_callable = scrape_yahoofinance,
         dag = dag
     )
 
+    # Scraping SG Investor
     sginvestor_scraping = PythonOperator(
         task_id = 'sginvestor_scraping',
         python_callable = scrape_sginvestor,
         dag = dag
     )
 
+    # Scraping SG Investor Blog
     sginvestor_blog_scraping = PythonOperator(
         task_id = 'sginvestor_blog_scraping',
         python_callable = scrape_sginvestor_blog,
         dag = dag
     )
 
-    start_pipeline = BashOperator(
-        task_id = 'start_pipeline',
-        bash_command = 'echo start',
-        dag = dag
-    )
-
-    prep_gcs = BashOperator(
-        task_id="prep_gcs",
-        bash_command="echo prep_gcs",
-        dag=dag
-    )
-
-    start_pipeline >> [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping] >> prep_gcs
-    return extract_taskgroup
+    [yahoofinance_scraping, sginvestor_scraping, sginvestor_blog_scraping]
+    return extract_news_taskgroup
 
