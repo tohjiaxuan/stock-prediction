@@ -17,6 +17,7 @@ import os
 import pandas as pd
 import requests
 import urllib.request
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -31,6 +32,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_transform_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup to transform data in the staging area in BigQuery.
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_transform_taskgroup = TaskGroup(group_id = 'financials_transform_tg')
 
     #####################

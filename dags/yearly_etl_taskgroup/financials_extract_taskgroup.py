@@ -16,6 +16,7 @@ import os
 import pandas as pd
 import requests
 import urllib.request
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -30,6 +31,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_extract_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for extraction of data from various sources
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_extract_taskgroup = TaskGroup(group_id = 'financials_extract_tg')
 
     # Load tickers stored as a separate CSV file.

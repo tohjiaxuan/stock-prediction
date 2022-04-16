@@ -27,6 +27,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_stage_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for to move data from Google Cloud Storage to staging area in BigQuery.
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_stage_taskgroup = TaskGroup(group_id = 'financials_stage_tg')
 
     ##############

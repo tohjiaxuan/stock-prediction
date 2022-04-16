@@ -25,6 +25,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_load_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup to load data into the BigQuery data warehouse. 
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_load_taskgroup = TaskGroup(group_id = 'financials_load_tg')
 
     # Load data into D_FINANCIALS Dimension table

@@ -17,6 +17,7 @@ import os
 import pandas as pd
 import requests
 import urllib.request
+
 logging.basicConfig(level=logging.INFO)
 
 headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.96 Safari/537.36"}
@@ -30,6 +31,15 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 
 
 def build_financials_schema_taskgroup(dag: DAG) -> TaskGroup: 
+    """Creates a taskgroup to initialise data warehouse tables based on the predefined schemas.
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     financials_schema_taskgroup = TaskGroup(group_id = 'financials_schema_tg')
 
     def create_dataset(**kwargs):
