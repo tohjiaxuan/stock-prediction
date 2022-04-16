@@ -103,7 +103,8 @@ a. Run `airflow db init`
 
 b. Re-run the airflow webserver and scheduler. 
 
-# Configuration of conn_id to connect to PostGres (After the PostGres Database has been created)
+# Create connection on Airflow 
+## Connect to PostGres (After the PostGres Database has been created)
 ### Add a new conn_id
 
 In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
@@ -123,3 +124,8 @@ Schema: postgres_db
 Login: postgres_local
 
 Port: 5432
+
+## Connect to Google Cloud
+In Airflow, go to Admin > Connections > Edit default google_cloud_default
+
+**Do not edit anything else except for** copying and pasting entire servicekey obtained previously into `Keyfile JSON` field
