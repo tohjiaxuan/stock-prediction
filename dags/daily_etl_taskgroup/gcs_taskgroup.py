@@ -37,7 +37,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='stock_scraping_data')
@@ -56,7 +56,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='exchange_rate_scraping_data')
@@ -75,7 +75,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='interest_rate_scraping_data')
@@ -94,7 +94,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='gold_scraping_data')
@@ -113,7 +113,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='silver_scraping_data')
@@ -132,7 +132,7 @@ def build_gcs_taskgroup(dag: DAG) -> TaskGroup:
 
         Parameters
         ----------
-        **kwargs: pass any keyword argumenst
+        **kwargs: pass any keyword argument
         """
         # Pulls the data from XCOMS by task_ids
         scraping_data = kwargs['ti'].xcom_pull(task_ids='crude_oil_scraping_data')
