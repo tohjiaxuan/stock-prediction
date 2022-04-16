@@ -62,7 +62,19 @@ Deliverables for this project includes:
 
 4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
 
-# Steps to configure the sending of emails on task failure
+# Configurations to be edited and set in `airflow.cfg`
+To configure the sending of emails on task failure:
+1. Generate Google App password:
+    a. Visit the App Passwords page (https://security.google.com/settings/security/apppasswords)
+    b. Select App as `airflow` and select `Generate`.
+    c. Copy the generated 16 digit password. 
+2. Edit `airflow.cfg` file with the following:
+    a. smtp_host = smtp.googlemail.com
+    b. smtp_user = YOUR_EMAIL_ADDRESS
+    c. smtp_password = 16_DIGIT_APP_PASSWORD
+    d. smtp_mail_from = YOUR_EMAIL_ADDRESS
+
+## Steps to configure the sending of emails on task failure
 ### Generate Google App password: 
 
 a. Visit the App Passwords page (https://security.google.com/settings/security/apppasswords)
@@ -122,7 +134,7 @@ Login: postgres_local
 
 Port: 5432
 
-# Run DAGs
+# Running of DAGs
 1. Turn on all the DAGs but do not trigger them yet 
 2. Trigger `yearly_dag_etl` and `daily_financial_news_dag` (order does not matter)
 
