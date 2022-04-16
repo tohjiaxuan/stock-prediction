@@ -55,12 +55,10 @@ Deliverables for this project includes:
     3. Set public access to be not public
     4. Developer should set the permissions by giving corresponding users the right access and role
     5. Download the Google ServiceKey (in JSON)
-
-3. In the Airflow webserver, head to `Admin` > `Connections`. 
+5. In the Airflow webserver, head to `Admin` > `Connections` (More details can be found below under "Creating connection(s) on Airflow")
     1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
-    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. More details can be found below under "Creating connection(s) on Airflow".
-
-4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
+    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
+6. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
 
 # Configurations to be edited and set in `airflow.cfg`
 ### To configure the sending of emails on task failure:
@@ -86,10 +84,18 @@ Note: you will first be prompted to create a new user. Create a new user with yo
     2. Re-run the airflow webserver and scheduler. 
 
 # Creating connection(s) on Airflow
+### Connect to Google Cloud (After obtaining the Google ServiceKey)
+1. Edit the `google_cloud_default` Conn Id
+    1. In Airflow, go to Admin > Connections > Select `google_cloud_default`
+2. Fill in with the following parameters:
+    1. Connection Id: google_cloud_default
+    2. Connection Type: Google Cloud
+    3. Keyfile JSON (Paste the contents of the Google ServiceKey file (in JSON format) obtained earlier into this field)
+
 ### Connect to PostGres (After the PostGres Database has been created)
-1. Add a new conn_id
+1. Add a new Conn Id
     1. In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
-2. Use the following parameters:
+2. Fill in with the following parameters:
     1. Connection Id: postgres_local
     2. Connection Type: Postgres
     3. Description: Airflow connection to PostGres
