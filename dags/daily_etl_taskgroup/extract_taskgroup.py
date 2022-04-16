@@ -210,6 +210,8 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             curr_df['Stock'] = ticker
             stocks.append(curr_df)
         
+        # Usually either Friday or weekend data will lag and not be reported at midnight
+        # Condition is used to check if that is the case, if it is just skip
         if len(stocks) == 0:
             # Create empty dataframe
             col_names = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
@@ -278,6 +280,10 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         else:
             logging.info("Start to extract stocks data to populate DWH")
             stock_df = initialise_stock_price('2018-01-02', curr_date)
+
+        # Reorder columns to standardise them
+        stock_df = stock_df[['Date', 'Open', 'High', 'Low', 'Close', 
+        'Volume', 'Dividends', 'Stock_Splits', 'Stock']]
         return stock_df
 
     def helper_exchange_rate(initial_date):
@@ -414,6 +420,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         else:
             logging.info('Start to extract initial exchange rate data')
             ex_df = initialise_exchange_rate('2018-01-02')
+        
+        # Standardise order of columns
+        ex_df = ex_df[['end_of_day', 'preliminary', 'eur_sgd', 'gbp_sgd', 'usd_sgd',
+        'aud_sgd', 'cad_sgd', 'cny_sgd_100', 'hkd_sgd_100', 'inr_sgd_100', 'idr_sgd_100',
+        'jpy_sgd_100' 'krw_sgd_100', 'myr_sgd_100', 'twd_sgd_100', 'nzd_sgd',
+        'php_sgd_100', 'qar_sgd_100', 'sar_sgd_100', 'chf_sgd', 'thb_sgd_100',
+        'aed_sgd_100', 'vnd_sgd_100', 'timestamp']]
         return ex_df
 
     def helper_interest_rate(initial_date):
@@ -591,6 +604,14 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             int_df = int_df.iloc[0:0]
         
         int_df = int_df.drop_duplicates('end_of_day')
+
+        #Standardise order of columns
+        int_df = int_df[['aggregate_volume', 'calculation_method', 'commercial_bills_3m',
+        'comp_sora_1m', 'comp_sora_3m', 'comp_sora_6m', 'end_of_day', 'highest_transaction',
+        'interbank_12m', 'interbank_1m', 'interbank_1w', 'interbank_2m', 'interbank_3m', 'interbank_6m',
+        'interbank_overnight', 'lowest_transaction', 'on_rmb_facility_rate', 'preliminary',
+        'published_date', 'sgs_repo_overnight_rate', 'sor_average', 'sora', 'sora_index',
+        'standing_facility_borrow', 'standing_facility_deposit', 'usd_sibor_3m', 'timestamp']]
         return int_df
 
     def initialise_gold_prices(start_date, end_date):
