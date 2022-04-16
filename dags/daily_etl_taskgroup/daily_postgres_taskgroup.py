@@ -12,20 +12,19 @@ from airflow.utils.task_group import TaskGroup
 from datetime import datetime, date
 from google.cloud import bigquery
 from google.cloud import storage
-
-
-from extract_taskgroup import build_extract_taskgroup
-from load_taskgroup import build_load_taskgroup
-from stage_taskgroup import build_stage_taskgroup
-from transform_taskgroup import build_transform_taskgroup
+from sqlalchemy import create_engine
 
 import cchardet
+import logging
 import json
 import os
 import pandas_gbq
 import pandas_ta as ta
 import requests
 import urllib.request
+import pandas as pd
+import psycopg2 as pg
+import sqlalchemy
 
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36"}
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
@@ -35,6 +34,8 @@ bucket = storage_client.get_bucket('stock_prediction_is3107')
 STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
+engine = pg.connect("dbname='postgres_db' user='postgres_local' host='localhost' port='5432' password='airflow'")
+c_engine = create_engine('postgresql://postgres_local:airflow@localhost:5432/postgres_db')
 
 def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     daily_postgres_taskgroup = TaskGroup(group_id = 'daily_postgres_taskgroup')
@@ -161,6 +162,197 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print(query)
             execute_query_with_hook(query)
 
+    ############################
+    #Python Functions to obtain  #
+    ############################
+
+    def if_f_stock_exists():
+        """Check if Stocks Fact Table is present in DWHS
+
+        Returns
+        -------
+        bool
+        """
+        try:
+            # Establish connection with BigQuery
+            bq_client = bigquery.Client()
+            query = 'SELECT COUNT(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+            
+            # Convert queried result to df
+            df = bq_client.query(query).to_dataframe()
+            df_length = df['f0_'].values[0]
+            if (df_length != 0):
+                return True
+            else:
+                return False
+        except:
+            return False
+    
+    def query_stock_dwh():
+        """Query stocks data from dwh for technical analysis
+
+        Returns
+        -------
+        dataframe
+            Contains the historical stocks data for the past 200 days for 30 stocks
+        """
+        # Establish connection with DWH
+        bq_client = bigquery.Client()
+        
+        # Query 6000 rows because we require 200 days worth of past data for each stock
+        # Value can change depending on the number of days for SMA / stock (30*200)
+        query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
+        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
+        df = bq_client.query(query).to_dataframe()
+        return df
+
+    def helper_sma_prices(input_df):
+        """Helper function to obtain the sma and golden, death crosess for each stock
+        
+        Parameters
+        ----------
+        input_df: dataframe
+            Historical stock prices
+
+        Returns
+        -------
+        dataframe
+            Contains historical prices, sma50, sma200, golden and death crosses
+        """
+        # Obtain unique values
+        uniq_stocks = input_df['Stock'].unique()
+        
+        sma_stock_postgress = []
+        # Check for null values, if present, do ffill
+        for ticker in uniq_stocks:
+            curr_df = input_df.loc[input_df['Stock'] == ticker]
+
+            # Sort by date
+            curr_df = curr_df.sort_values(by = ['Date'])
+            curr_df = curr_df.reset_index(drop = True)
+
+            # Forward fill values
+            if (curr_df.isnull().values.any() == True):
+                curr_df = curr_df.fillna(method='ffill')
+                    
+            # Conduct TA analysis
+            curr_df['SMA_50'] = ta.sma(curr_df['Close'], length = 50, append=True)
+            curr_df['SMA_200'] = ta.sma(curr_df['Close'], length=200, append=True)
+            curr_df["GC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+            curr_df["DC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+            sma_stock_postgress.append(curr_df)
+        
+        # Transform to df
+        final_df = pd.concat(sma_stock_postgress, ignore_index = True)
+
+        # Add Constant column for fact table later on
+        final_df['Price Category'] = "Stock"
+            
+        logging.info('Completed technical analysis for stocks')
+        return final_df
+
+    def get_distinct_stocks_daily_df():
+        """Convert distinct_stocks_daily table to dataframe
+        Returns
+        -------
+        dataframe
+            Contains the distinct historical stocks data 
+        """
+        distinct_stocks_daily_df = pd.read_sql_query('select * from distinct_stocks_daily', con=engine)
+        logging.info('distinct_stocks_daily dataframe')
+        return distinct_stocks_daily_df
+    
+    def get_distinct_interest_rates_daily_df():
+        """Convert distinct_interest_rates_daily table to dataframe
+        Returns
+        -------
+        dataframe
+            Contains the distinct historical interest rate data 
+        """
+        distinct_interest_rates_daily_df = pd.read_sql_query('select * from distinct_interest_rates_daily', con=engine)
+        logging.info('distinct_interest_rates_daily dataframe')
+    
+        # To prepare df for lagging dates, change column name
+        distinct_interest_rates_daily_df.rename(columns={'Date':'Actual Date'}, inplace=True)
+
+        return distinct_interest_rates_daily_df
+    
+    def get_distinct_exchange_rates_daily_df():
+        """Retrive historical date and convert it to dataframe
+
+        Returns
+        -------
+        dataframe
+            Contains the distinct date from historical exchnage rate data from staging tables
+        """
+        distinct_exchange_rates_daily_df = pd.read_sql_query('select Date from distinct_exchange_rates_daily order by Date desc', con=engine)
+        logging.info('distinct_exchange_rates_daily dataframe')
+        return distinct_exchange_rates_daily_df
+
+    def update_sma():
+        """Helper function to obtain sma and golden, death crosess for updated stock data
+
+        Returns
+        -------
+        dataframe
+            Contains historical prices, sma50, sma200, golden and death crosses for updated stock
+        """
+        new_df = get_distinct_stocks_daily_df()
+        old_df = query_stock_dwh()
+
+        # Create new dataframe that contains the past 200 days of data and the newly updated stock data
+        df = old_df.append(new_df, ignore_index = True)
+
+        # Get unique dates to prevent duplicated data
+        uniq_dates = new_df['Date'].unique()
+        output = helper_sma_prices(df) # Calculate SMA, golden and death crosses
+        output = output[output['Date'].isin(uniq_dates)] # Only keep records that are present in updated stock data
+        return output
+
+    def sma_prices():
+        """Obtain sma and golden, death crosess for stock data
+        """
+        check_dwh = if_f_stock_exists() # Check if fact table exists
+        # If it exists, then we just have to update SMA instead of populating for everying
+        if check_dwh:
+            logging.info('Start to update SMA, GC and DC for updated stock data')
+            result = update_sma()
+            logging.info('Completed SMA, GC and DC update')
+        else:
+            logging.info('Start to initialise SMA, GC and DC')
+            temp = get_distinct_stocks_daily_df()
+            result = helper_sma_prices(temp)
+            logging.info('Completed SMA, GC and DC initialisation')
+        
+        #Create final_stock postgres table
+        result.to_sql('final_stock', c_engine)
+    
+    def lag_int_postgres():
+        """Obtain lagged date for interest rate
+        """
+        int_df = get_distinct_interest_rates_daily_df() 
+        ex_df = get_distinct_exchange_rates_daily_df() # Lagged dates are obtained from exchange rate
+
+        # To ensure index is the same
+        int_df = int_df.reset_index(drop=True)
+        ex_df = ex_df.reset_index(drop=True)
+
+        dates =  ex_df['Date'].to_list()
+        print(int_df)
+        
+        # If interest date has more data, we start from first row
+        if (len(ex_df) < len(int_df)):
+            int_df = int_df.iloc[1:]
+        
+        lag_int_postgres = int_df
+        lag_int_postgres['Date'] = dates
+
+        # Rename columns to ensure consistency
+        if 'date' in lag_int_postgres.columns and 'inr_id' in lag_int_postgres.columns:
+            lag_int_postgres.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
+
+        logging.info("Create final_interest_rate postgres table")
+        lag_int_postgres.to_sql('final_interest_rate', c_engine)
 
     insert_stocks_daily_table = PythonOperator(
         task_id = 'insert_stocks_daily_table',
@@ -222,7 +414,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     dag = dag, 
     postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
     sql = '''
-        CREATE TABLE exchange_rates_daily (
+        CREATE TABLE IF NOT EXISTS exchange_rates_daily (
         end_of_day TEXT,
         preliminary TEXT,
         eur_sgd TEXT,
@@ -450,6 +642,34 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''  
     )
 
+    cast_interest_rate_daily_table = PostgresOperator(
+        task_id = 'cast_interest_rate_daily_table',
+        dag = dag,
+        postgres_conn_id = "postgres_local",
+        sql = '''
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        concat(end_of_day, '-INR') as INR_ID, 
+        CAST(aggregate_volume AS double precision) AS aggregate_volume,
+        CAST(calculation_method AS TEXT) AS calculation_method,
+        CAST(comp_sora_1m AS double precision) AS comp_sora_1m,
+        CAST(comp_sora_3m AS double precision) AS comp_sora_3m,
+        CAST(comp_sora_6m AS double precision) AS comp_sora_6m,
+        CAST(highest_transaction AS double precision) AS highest_transaction,
+        CAST(lowest_transaction AS double precision) AS lowest_transaction,
+        CAST(on_rmb_facility_rate AS TEXT) AS on_rmb_facility_rate,
+        CAST(published_date AS TEXT) AS published_date,
+        CAST(sor_average AS double precision) AS sor_average,
+        CAST(sora AS double precision) AS sora,
+        CAST(sora_index AS double precision) AS sora_index,
+        CAST(standing_facility_borrow AS TEXT) AS standing_facility_borrow,
+        CAST(standing_facility_deposit AS TEXT) AS standing_facility_deposit,
+        CAST(int_rate_preliminary AS integer) AS int_rate_preliminary, 
+        CAST(int_rate_timestamp AS TEXT) AS int_rate_timestamp,
+        into cast_interest_rate_daily
+        from (SELECT * from final_interest_rate) as ir_daily
+        '''  
+    )
+
     start_daily_transformation_postgres = DummyOperator(
         task_id = 'start_daily_transformation_postgres',
         trigger_rule = 'one_failed',
@@ -465,7 +685,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     def stocks_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * from stocks_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from final_stock;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_hist_prices', project_id=PROJECT_ID, if_exists='replace') 
     
     def exchange_rates_daily_df_bigquery(**kwargs):
@@ -473,16 +693,39 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         df = hook.get_pandas_df(sql="SELECT * from distinct_exchange_rates_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.distinct_exchange_rate', project_id=PROJECT_ID, if_exists='replace') 
 
-    def interest_rates_daily_df_bigquery(**kwargs):
+    def distinct_interest_rates_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily;")
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.distinct_interest_rate', project_id=PROJECT_ID, if_exists='replace')
+
+    def interest_rates_daily_df_bigquery(**kwargs):
+        hook = PostgresHook(postgres_conn_id="postgres_local")
+        df = hook.get_pandas_df(sql="SELECT * from final_interest_rate;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_interest_rate', project_id=PROJECT_ID, if_exists='replace')
+
+    def cast_int_rate_df_bigquery(**kwargs):
+        hook = PostgresHook(postgres_conn_id="postgres_local")
+        df = hook.get_pandas_df(sql="SELECT * from cast_interest_rate_daily;")
+        pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.casted_interest_rate', project_id=PROJECT_ID, if_exists='replace') 
 
     def commodities_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
         df = hook.get_pandas_df(sql="SELECT * from distinct_commodities_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_commodity_prices', project_id=PROJECT_ID, if_exists='replace') 
 
+    # Add SMA to df
+    sma_stock_postgres = PythonOperator(
+        task_id = 'sma_stock_postgres_task',
+        python_callable = sma_prices,
+        dag = dag
+    )
+
+    # Add lag dates to df
+    lag_int_postgres = PythonOperator(
+        task_id = 'lag_int_postgres_task',
+        python_callable = lag_int_postgres,
+        dag = dag
+    )   
 
     stocks_daily_df_bigquery = PythonOperator(
         task_id = 'stocks_daily_df_bigquery',
@@ -499,18 +742,26 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         python_callable = interest_rates_daily_df_bigquery
     )
 
+    distinct_interest_rates_df_bigquery = PythonOperator(
+        task_id = 'distinct_interest_rates_df_bigquery',
+        python_callable = distinct_interest_rates_df_bigquery
+    )
+
+    cast_int_rate_df_bigquery = PythonOperator(
+        task_id = 'cast_int_rate_df_bigquery',
+        python_callable = cast_int_rate_df_bigquery
+    )
+
     commodities_daily_df_bigquery = PythonOperator(
         task_id = 'commodities_daily_df_bigquery',
         python_callable = commodities_daily_df_bigquery
     )
 
-
-
     start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily, create_commodities_daily_table]
     
-    create_stocks_daily_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> stocks_daily_df_bigquery
+    create_stocks_daily_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> sma_stock_postgres >> stocks_daily_df_bigquery
     create_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
-    create_interest_rates_daily_table >> insert_interest_rates_daily_table >> distinct_interest_rates_daily_table >> interest_rates_daily_df_bigquery
+    create_interest_rates_daily_table >> insert_interest_rates_daily_table >> distinct_interest_rates_daily_table >> lag_int_postgres >> cast_interest_rate_daily_table >> [distinct_interest_rates_df_bigquery, interest_rates_daily_df_bigquery, cast_int_rate_df_bigquery]
     create_table_gold_daily >> insert_gold_daily_table 
     create_table_silver_daily >> insert_silver_daily_table 
     create_table_crude_oil_daily >> insert_crude_oil_daily_table
@@ -518,7 +769,6 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     [insert_gold_daily_table, insert_silver_daily_table, insert_crude_oil_daily_table, create_commodities_daily_table] >> distinct_commodities_daily_table
     distinct_commodities_daily_table >> commodities_daily_df_bigquery
     
-    [stocks_daily_df_bigquery, exchange_rates_daily_df_bigquery, interest_rates_daily_df_bigquery, commodities_daily_df_bigquery] >> end_daily_transformation_postgres
-
+    [stocks_daily_df_bigquery, exchange_rates_daily_df_bigquery, interest_rates_daily_df_bigquery, distinct_interest_rates_df_bigquery, cast_int_rate_df_bigquery, commodities_daily_df_bigquery] >> end_daily_transformation_postgres
 
     return daily_postgres_taskgroup
