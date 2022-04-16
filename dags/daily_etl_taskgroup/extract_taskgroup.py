@@ -107,7 +107,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         try:
             # Establish connection with BigQuery 
             bq_client = bigquery.Client()
-            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+            query = 'SELECT COUNT(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
 
             # Convert queried result to df
             df = bq_client.query(query).to_dataframe()
@@ -129,7 +129,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         # Establish connection with bigquery
         bq_client = bigquery.Client()
-        query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`"
+        query = "SELECT MAX(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`"
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         string_date = np.datetime_as_string(recent_date, unit='D')
@@ -144,7 +144,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         try:
             bq_client = bigquery.Client()
-            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
+            query = 'SELECT COUNT(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
@@ -163,7 +163,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             The most recent date present in DWH, inform users to extract data after that date
         """
         bq_client = bigquery.Client()
-        query = "select MAX(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`"
+        query = "SELECT MAX(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`"
         df = bq_client.query(query).to_dataframe()
         recent_date = df['f0_'].values[0]
         string_date = np.datetime_as_string(recent_date, unit='D')

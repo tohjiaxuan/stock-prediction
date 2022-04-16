@@ -53,7 +53,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         try:
             # Establish connection with BigQuery
             bq_client = bigquery.Client()
-            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+            query = 'SELECT COUNT(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
             
             # Convert queried result to df
             df = bq_client.query(query).to_dataframe()
@@ -249,7 +249,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         """
         try:
             bq_client = bigquery.Client()
-            query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
+            query = 'SELECT COUNT(`Date`) FROM `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
@@ -282,13 +282,13 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dataframe
             3 dataframes, gold, silver and crude oil respectivel
         """
-        gold_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_gold`"
+        gold_query = "SELECT DISTINCT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_gold`"
         gold_stage_df = bq_client.query(gold_query).to_dataframe()
 
-        silver_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_silver`"
+        silver_query = "SELECT DISTINCT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_silver`"
         silver_stage_df = bq_client.query(silver_query).to_dataframe()
 
-        crude_oil_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_crude_oil`"
+        crude_oil_query = "SELECT DISTINCT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_crude_oil`"
         crude_oil_stage_df = bq_client.query(crude_oil_query).to_dataframe()
 
         return gold_stage_df, silver_stage_df, crude_oil_stage_df
@@ -381,14 +381,14 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_exchange_task',
         use_legacy_sql = False,
         sql = f'''
-                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_exchange_rate`
-                as select distinct parse_timestamp('%Y-%m-%d', end_of_day) as Date,
-                concat(temp.end_of_day, '-EXR') as EXR_ID, *
-                except (
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_exchange_rate`
+                AS SELECT DISTINCT PARSE_TIMESTAMP('%Y-%m-%d', end_of_day) AS Date,
+                CONCAT(temp.end_of_day, '-EXR') AS EXR_ID, *
+                EXCEPT (
                     end_of_day, preliminary, timestamp
                 ),
-                preliminary as ex_rate_preliminary, timestamp as ex_rate_timestamp
-                from `{PROJECT_ID}.{STAGING_DATASET}.init_exchange_rates` as temp
+                preliminary AS ex_rate_preliminary, timestamp AS ex_rate_timestamp
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_exchange_rates` AS temp
         ''',
         dag = dag,
     )
@@ -398,18 +398,18 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_interest_task',
         use_legacy_sql = False,
         sql = f'''
-        create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_interest_rate` 
-        as select distinct parse_timestamp('%Y-%m-%d', end_of_day) as Date, 
-        concat(temp.end_of_day, '-INR') as INR_ID, *
-        except(
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_interest_rate` 
+        AS SELECT DISTINCT PARSE_TIMESTAMP('%Y-%m-%d', end_of_day) AS Date, 
+        CONCAT(temp.end_of_day, '-INR') AS INR_ID, *
+        EXCEPT(
             end_of_day, preliminary, timestamp,
             interbank_overnight, interbank_1w, interbank_1m, interbank_2m, interbank_3m,
             interbank_6m, interbank_12m, commercial_bills_3m, usd_sibor_3m, sgs_repo_overnight_rate,
             on_rmb_facility_rate
         ),
-        preliminary as int_rate_preliminary, timestamp as int_rate_timestamp,
+        preliminary AS int_rate_preliminary, timestamp AS int_rate_timestamp,
         CAST(on_rmb_facility_rate AS STRING) AS on_rmb_facility_rate,
-        from `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates` as temp
+        FROM `{PROJECT_ID}.{STAGING_DATASET}.init_interest_rates` AS temp
         ''',
         dag = dag
     )
@@ -419,9 +419,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_stock_prices_task',
         use_legacy_sql = False,
         sql = f'''
-        create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_hist_stock_prices` 
-        as select distinct *
-        from `{PROJECT_ID}.{STAGING_DATASET}.init_hist_stock_prices`
+        CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_hist_stock_prices` 
+        AS SELECT DISTINCT *
+        FROM `{PROJECT_ID}.{STAGING_DATASET}.init_hist_stock_prices`
         ''',
         dag = dag
     )
@@ -431,9 +431,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_gold_task',
         use_legacy_sql = False,
         sql = f'''
-                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_gold`
-                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-GOLD-COMM') as COMM_ID, *
-                from `{PROJECT_ID}.{STAGING_DATASET}.init_gold` as temp
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_gold`
+                AS SELECT DISTINCT CONCAT( FORMAT_TIMESTAMP('%Y-%m-%d', temp.Date) , '-GOLD-COMM') AS COMM_ID, *
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_gold` AS temp
         ''',
         dag = dag
     )
@@ -443,9 +443,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_silver_task',
         use_legacy_sql = False,
         sql = f'''
-                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_silver`
-                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-SILVER-COMM') as COMM_ID, *
-                from `{PROJECT_ID}.{STAGING_DATASET}.init_silver` as temp
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_silver`
+                AS SELECT DISTINCT CONCAT( FORMAT_TIMESTAMP('%Y-%m-%d', temp.Date) , '-SILVER-COMM') AS COMM_ID, *
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_silver` AS temp
         ''',
         dag = dag
     )
@@ -455,9 +455,9 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         task_id = 'distinct_crude_oil_task',
         use_legacy_sql = False,
         sql = f'''
-                create or replace table `{PROJECT_ID}.{STAGING_DATASET}.distinct_crude_oil`
-                as select distinct concat( format_timestamp('%Y-%m-%d', temp.Date) , '-CRUDE OIL-COMM') as COMM_ID, *
-                from `{PROJECT_ID}.{STAGING_DATASET}.init_crude_oil` as temp
+                CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.distinct_crude_oil`
+                AS SELECT DISTINCT CONCAT( FORMAT_TIMESTAMP('%Y-%m-%d', temp.Date) , '-CRUDE OIL-COMM') AS COMM_ID, *
+                FROM `{PROJECT_ID}.{STAGING_DATASET}.init_crude_oil` AS temp
         ''',
         dag = dag
     )
