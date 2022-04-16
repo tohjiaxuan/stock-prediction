@@ -63,7 +63,9 @@ Deliverables for this project includes:
 
 3. In the Airflow webserver, head to `Admin` > `Connections`. 
     1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
-    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
+    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. More details can be found below
+
+4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Sinagpore)` and save the query setting
 
 # Steps to configure the sending of emails on task failure
 ### Generate Google App password: 
@@ -124,8 +126,3 @@ Schema: postgres_db
 Login: postgres_local
 
 Port: 5432
-
-## Connect to Google Cloud
-In Airflow, go to Admin > Connections > Edit default google_cloud_default
-
-**Do not edit anything else except for** copying and pasting entire servicekey obtained previously into `Keyfile JSON` field
