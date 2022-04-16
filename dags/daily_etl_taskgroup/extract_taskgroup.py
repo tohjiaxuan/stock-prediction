@@ -578,14 +578,13 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         new_batch = helper_retrieval(new_url, headers)
         df = pd.DataFrame(new_batch)
 
-        # Check if df.head(1) is same as pulled date
-        temp = df.head(1)
-        # If it is same as pulled date, not what we want, get the data one row after it
-        # Data is sorted in descending order
-        if (temp.iloc[0]['end_of_day'] == pulled_date):
+        temp = df['end_of_day'].iloc[0]
+        print(temp)
+
+        if temp == '2018-01-02':
             df = df.iloc[[1]]
         else:
-            df = temp
+            df = df.iloc[[0]]
         return df
         
     def interest_rate():
@@ -614,6 +613,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         if len(int_df) == 1 & int_df['sora'].isna().values.any():
             int_df = int_df.iloc[0:0]
         
+        print(int_df['end_of_day'])
         int_df = int_df.drop_duplicates('end_of_day')
 
         #Standardise order of columns
