@@ -8,21 +8,16 @@ Deliverables for this project includes:
 4. PostgreSQL database used to conduct transformations in times of failure
 5. Data Warehouse hosted in BigQuery
 
-# Project Directory
+# File Directory to be followed in VM
 ```
-├── Experimental Code
-│   └── ...
 ├── dags
-│   └── archive
-│       ├── ...
-│   └── daily_etl_taskgroup
-│       ├── daily_dag.py
-│       ├── extract_taskgroup.py
-│       ├── gcs_taskgroup.py
-│       ├── load_taskgroup.py
-│       ├── daily_postgres_taskgroup.py
-│       ├── stage_taskgroup.py
-│       ├── transform_taskgroup.py
+│   └── daily_dag.py
+│   └── extract_taskgroup.py
+│   └── gcs_taskgroup.py
+│   └── load_taskgroup.py
+│   └── daily_postgres_taskgroup.py
+│   └── stage_taskgroup.py
+│   └── transform_taskgroup.py
 │   └── news_etl_taskgroup
 │       ├── daily_financial_news.py
 │       ├── extract_taskgroup.py
@@ -39,16 +34,15 @@ Deliverables for this project includes:
 │       ├── D_interest_rate.sql
 │       ├── F_news.sql
 │       ├── F_stock.sql
-│   └── yearly_etl_taskgroup
-│       ├── financials_dwh_schemas.py
-│       ├── financials_extract_taskgroup.py
-│       ├── financials_gcs_taskgroup.py
-│       ├── financials_load_taskgroup.py
-│       ├── financials_postgres_taskgroup.py
-│       ├── financials_schema_taskgroup.py
-│       ├── financials_stage_taskgroup.py
-│       ├── financials_transform_taskgroup.py
-│       ├── yearly_dag_etl.py
+│   └── financials_dwh_schemas.py
+│   └── financials_extract_taskgroup.py
+│   └── financials_gcs_taskgroup.py
+│   └── financials_load_taskgroup.py
+│   └── financials_postgres_taskgroup.py
+│   └── financials_schema_taskgroup.py
+│   └── financials_stage_taskgroup.py
+│   └── financials_transform_taskgroup.py
+│   └── yearly_dag_etl.py
 │   └── sti.csv
 ```
 
