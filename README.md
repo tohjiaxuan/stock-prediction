@@ -55,74 +55,57 @@ Deliverables for this project includes:
     3. Set public access to be not public
     4. Developer should set the permissions by giving corresponding users the right access and role
     5. Download the Google ServiceKey (in JSON)
-
-3. In the Airflow webserver, head to `Admin` > `Connections`. 
+5. In the Airflow webserver, head to `Admin` > `Connections` (More details can be found below under "Creating connection(s) on Airflow")
     1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
-    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. More details can be found below
+    2. Set up PostgreSQL if you have not done so and then create a `postgres_local` Conn Id with your credentials - set `Host` and `Port` as `localhost` and `5432` respectively. 
+6. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
 
-4. To ensure that the processing unit is closest to you, after setting up the DWH, enter BigQuery console. In the editor head to `MORE` > `Query Settings` > `Data location` and select `asia-southeast1 (Singapore)` and save the query setting
+# Configurations to be edited and set in `airflow.cfg`
+### To configure the sending of emails on task failure:
+1. Generate Google App password:
+    1. Visit the App Passwords page (https://security.google.com/settings/security/apppasswords)
+    2. Select App as `airflow` and select `Generate`.
+    3. Copy the generated 16 digit password. 
+2. Edit `airflow.cfg` file with the following:
+    1. smtp_host = smtp.googlemail.com
+    2. smtp_user = YOUR_EMAIL_ADDRESS
+    3. smtp_password = 16_DIGIT_APP_PASSWORD
+    4. smtp_mail_from = YOUR_EMAIL_ADDRESS
+3. Edit main DAG file:
+    1. Input desired email in the `email:` field in `default_args`
 
-# Steps to configure the sending of emails on task failure
-### Generate Google App password: 
-
-a. Visit the App Passwords page (https://security.google.com/settings/security/apppasswords)
-
-b. Select App as `airflow` and select `Generate`. 
-
-c. Copy the generated 16 digit password. 
-
-### Edit `airflow.cfg` file with the following:
-
-smtp_host = smtp.googlemail.com
-
-smtp_user = YOUR_EMAIL_ADDRESS
-
-smtp_password = 16_DIGIT_APP_PASSWORD
-
-smtp_mail_from = YOUR_EMAIL_ADDRESS
-
-### Edit dag file:
-
-Input desired email in the `email:` field in `default_args`
-
-# Enabling Parallel Processing
-### Edit `airflow.cfg` file with the following: 
-
-a. Change the executor: replace with `executor = LocalExecutor`
-
-b. Change SqlAlchemy connection: replace with `sql_alchemy_conn = postgresql+psycopg2://postgres_local:airflow@localhost/postgres_db`
-
-### Run the following commands within the terminal:
-
+### To enable parallel processing
+1. Edit `airflow.cfg` file with the following: 
+    1. Change the executor: replace with `executor = LocalExecutor`
+    2. Change SqlAlchemy connection: replace with `sql_alchemy_conn = postgresql+psycopg2://postgres_local:airflow@localhost/postgres_db`
+2. Run the following commands within the terminal:
 Note: you will first be prompted to create a new user. Create a new user with your own credentials. Do make sure your `postgres_local` Conn Id is still present. Otherwise, recreate that Conn Id. 
+    1. Run `airflow db init`
+    2. Re-run the airflow webserver and scheduler. 
 
-a. Run `airflow db init`
+# Creating connection(s) on Airflow
+### Connect to Google Cloud (After obtaining the Google ServiceKey)
+1. Edit the `google_cloud_default` Conn Id
+    1. In Airflow, go to Admin > Connections > Select `google_cloud_default`
+2. Fill in with the following parameters:
+    1. Connection Id: google_cloud_default
+    2. Connection Type: Google Cloud
+    3. Keyfile JSON (Paste the contents of the Google ServiceKey file (in JSON format) obtained earlier into this field)
 
-b. Re-run the airflow webserver and scheduler. 
-
-# Create connection on Airflow 
-## Connect to PostGres (After the PostGres Database has been created)
-### Add a new conn_id
-
-In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
-
-### Use the following parameters
-
-Connection Id: postgres_local
-
-Connection Type: Postgres
-
-Description: Airflow connection to PostGres
-
-Host: localhost
-
-Schema: postgres_db
-
-Login: postgres_local
-
-Port: 5432
-
-# Run DAGs
+### Connect to PostGres (After the PostGres Database has been created)
+1. Add a new Conn Id
+    1. In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
+2. Fill in with the following parameters:
+    1. Connection Id: postgres_local
+    2. Connection Type: Postgres
+    3. Description: Airflow connection to PostGres
+    4. Host: localhost
+    5. Schema: postgres_db
+    6. Login: postgres_local
+    7. Port: 5432
+    
+# Running of DAGs
 1. Turn on all the DAGs but do not trigger them yet 
 2. Trigger `yearly_dag_etl` and `daily_financial_news_dag` (order does not matter)
-**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearly_dag_etl` upon completion
+
+**Note: `daily_dag` does not require the user to manually trigger it. It will be triggered by `yearly_dag_etl` upon completion via the `TriggerDagRunOperator`.

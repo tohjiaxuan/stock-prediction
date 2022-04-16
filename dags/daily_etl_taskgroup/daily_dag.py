@@ -42,7 +42,7 @@ def check_stocks(**kwargs):
 
     Parameters
     ----------
-    **kwargs: pass any keyword argumenst
+    **kwargs: pass any keyword argument
 
     Returns
     -------
