@@ -199,7 +199,6 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         for ticker in sgx:
             curr_ticker = yf.Ticker(ticker)
             curr_df = curr_ticker.history(start = start_date, end = end_date)
-            print(curr_df)
 
             # Check if df contains results
             if len(curr_df) == 0:
