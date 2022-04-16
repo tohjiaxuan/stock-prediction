@@ -1,5 +1,5 @@
 # ETL & DWH Project
-The main aim of this project is to create a ETL pipeline using Apache Airlow and a data warehouse on BigQuery for downstream applicatinos such as Stock Analysis (Prediction) & Sentiment Analysis. 
+The main aim of this project is to create a ETL pipeline using Apache Airlow and a data warehouse on BigQuery for downstream applications such as Stock Analysis (Prediction) & Sentiment Analysis. 
 
 Deliverables for this project includes:
 1. 3 DAGs created using Python
