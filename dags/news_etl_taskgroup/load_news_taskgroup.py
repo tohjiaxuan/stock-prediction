@@ -44,7 +44,7 @@ def build_load_news_taskgroup(dag: DAG) -> TaskGroup:
         task id
            Tells dag which part to take - load data or skip loading
         """
-        instruction = ti.xcom_pull(task_ids='dag_path')
+        instruction = ti.xcom_pull(task_ids='dag_path_task')
         if instruction == 'start_gcs_task': 
             return 'f_news_table' 
         else:

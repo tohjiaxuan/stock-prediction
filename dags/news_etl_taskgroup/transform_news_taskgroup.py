@@ -23,15 +23,15 @@ def build_transform_news_taskgroup(dag: DAG) -> TaskGroup:
     task_id = 'join_financial_news',
     use_legacy_sql = False,
     sql = f'''
-            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news` as 
+            CREATE OR REPLACE TABLE `{PROJECT_ID}.{STAGING_DATASET}.join_financial_news` AS
             SELECT DISTINCT * FROM 
-            (SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(date AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
+            (SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(NULLIF(CAST(date AS STRING), NULL) AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
                 FROM `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_news` UNION DISTINCT
-            SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(date AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
+            SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(NULLIF(CAST(date AS STRING), NULL) AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
                 FROM `{PROJECT_ID}.{STAGING_DATASET}.yahoofinance_news` UNION DISTINCT
-            SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(date AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
+            SELECT CAST(ticker AS STRING) AS Ticker, CAST(title AS STRING) AS Title, CAST(NULLIF(CAST(date AS STRING), NULL) AS TIMESTAMP) AS Date, CAST(link AS STRING) AS Link, CAST(source AS STRING) AS Source, CAST(comments AS STRING) AS Comments
                 FROM `{PROJECT_ID}.{STAGING_DATASET}.sginvestor_blog_news` 
-            ) temp
+            ) 
     ''',
     dag = dag
     )
