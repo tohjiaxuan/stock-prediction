@@ -9,10 +9,14 @@ from google.cloud.exceptions import NotFound
 from airflow.utils.task_group import TaskGroup
 
 import json
+import logging
 import os
 import pandas as pd
 import pandas_ta as ta
 
+logging.basicConfig(level=logging.INFO)
+
+# Establish connection with staging tables in DWH
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
 bq_client = bigquery.Client()
@@ -21,19 +25,37 @@ STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
 
-
 def build_transform_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for transformation of data in BigQuery staging tables
+
+    Parameters
+    ----------
+    dag: An airflow DAG
+
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     transform_taskgroup = TaskGroup(group_id = 'transform_taskgroup')
 
     ############################
     # Define Python Functions  #
     ############################
 
-    # Define python functions for stock prices related items (stock prices, exchange rate, interest rate)
     def if_f_stock_exists():
+        """Check if Stocks Fact Table is present in DWHS
+
+        Returns
+        -------
+        bool
+        """
         try:
+            # Establish connection with BigQuery
             bq_client = bigquery.Client()
             query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`'
+            
+            # Convert queried result to df
             df = bq_client.query(query).to_dataframe()
             df_length = df['f0_'].values[0]
             if (df_length != 0):
@@ -44,21 +66,42 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             return False
     
     def query_stock_dwh():
+        """Query stocks data from dwh for technical analysis
+
+        Returns
+        -------
+        dataframe
+            Contains the historical stocks data for the past 200 days for 30 stocks
+        """
+        # Establish connection with DWH
         bq_client = bigquery.Client()
+        
+        # Query 6000 rows because we require 200 days worth of past data for each stock
+        # Value can change depending on the number of days for SMA / stock (30*200)
         query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
         FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
         df = bq_client.query(query).to_dataframe()
-
         return df
 
     def helper_sma_prices(input_df):
+        """Helper function to obtain the sma and golden, death crosess for each stock
+        
+        Parameters
+        ----------
+        input_df: dataframe
+            Historical stock prices
+
+        Returns
+        -------
+        dataframe
+            Contains historical prices, sma50, sma200, golden and death crosses
+        """
         # Obtain unique values
         uniq_stocks = input_df['Stock'].unique()
         
         sma_stocks = []
         # Check for null values, if present, do ffill
         for ticker in uniq_stocks:
-            print("Currently handling", ticker)
             curr_df = input_df.loc[input_df['Stock'] == ticker]
 
             # Sort by date
@@ -82,72 +125,128 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         # Add Constant column for fact table later on
         final_df['Price Category'] = "Stock"
             
-        print("Transforming Stocks Data Complete")
+        logging.info('Completed technical analysis for stocks')
         return final_df
 
     def query_stage_table():
+        """Query stocks staging table
+
+        Returns
+        -------
+        dataframe
+            Contains the historical stocks data from staging tables
+        """
         query = "select * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_hist_stock_prices`"
         stage_df = bq_client.query(query).to_dataframe()
+        logging.info('Queried from stocks staging table')
 
         return stage_df
     
     def query_int_stage():
+        """Query interest rate staging table
+
+        Returns
+        -------
+        dataframe
+            Contains the historical interest rate data from staging tables
+        """
         bq_client = bigquery.Client()
         query = """SELECT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_interest_rate`
         ORDER BY `Date`"""
         df = bq_client.query(query).to_dataframe()
+        logging.info('Queried from interest rate staging table')
+
+        # To prepare df for lagging dates, change column name
         df.rename(columns={'Date':'Actual Date'}, inplace=True)
 
         return df
     
     def query_ex_stage():
+        """Query exchange rate staging table
+
+        Returns
+        -------
+        dataframe
+            Contains the historical exchnage rate data from staging tables
+        """
         bq_client = bigquery.Client()
         query = """SELECT `Date` FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_exchange_rate`
         ORDER BY `Date`"""
         df = bq_client.query(query).to_dataframe()
+        logging.info('Queried from ex rate staging table')
 
         return df
 
     def update_sma():
+        """Helpder function to obtain sma and golden, death crosess for updated stock data
+
+        Returns
+        -------
+        dataframe
+            Contains historical prices, sma50, sma200, golden and death crosses for updated stock
+        """
         new_df = query_stage_table()
         old_df = query_stock_dwh()
 
+        # Create new dataframe that contains the past 200 days of data and the newly updated stock data
         df = old_df.append(new_df, ignore_index = True)
 
+        # Get unique dates to prevent duplicated data
         uniq_dates = new_df['Date'].unique()
-        output = helper_sma_prices(df)
-        output = output[output['Date'].isin(uniq_dates)]
+        output = helper_sma_prices(df) # Calculate SMA, golden and death crosses
+        output = output[output['Date'].isin(uniq_dates)] # Only keep records that are present in updated stock data
         return output
 
     def sma_prices():
-        check_dwh = if_f_stock_exists()
+        """Obtain sma and golden, death crosess for stock data
+        """
+        check_dwh = if_f_stock_exists() # Check if fact table exists
+        # If it exists, then we just have to update SMA instead of populating for everying
         if check_dwh:
+            logging.info('Start to update SMA, GC and DC for updated stock data')
             result = update_sma()
+            logging.info('Completed SMA, GC and DC update')
         else:
+            logging.info('Start to initialise SMA, GC and DC')
             temp = query_stage_table()
             result = helper_sma_prices(temp)
-        print(result)
+            logging.info('Completed SMA, GC and DC initialisation')
+        
+        # Send to GCS cloud
+        logging.info("Sent final stock data to GCS")
         result.to_parquet('gs://stock_prediction_is3107/final_stock.parquet', engine='pyarrow', index=False)
     
     def lag_int():
-        int_df = query_int_stage()
-        ex_df = query_ex_stage()
+        """Obtain lagged date for interest rate
+        """
+        int_df = query_int_stage() 
+        ex_df = query_ex_stage() # Lagged dates are obtained from exchange rate
 
         # To ensure index is the same
         int_df = int_df.reset_index(drop=True)
         ex_df = ex_df.reset_index(drop=True)
         
+        # If interest date has more data, we start from first row
         if (len(ex_df) < len(int_df)):
             int_df = int_df.iloc[1:]
         
         lag_int = int_df.join(ex_df)
-        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'})
+        lag_int = lag_int.astype({'on_rmb_facility_rate':'string'}) # Ensure data type
+
+        # Rename columns to ensure consistency
         if 'date' in lag_int.columns and 'inr_id' in lag_int.columns:
-            lag_int.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)         
+            lag_int.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
+        
+        logging.info("Sent lagged date interest rate data to GCS")
         lag_int.to_parquet('gs://stock_prediction_is3107/lag_interest.parquet', engine='pyarrow', index=False)
 
-    # Define python functions for commodities related items (gold, silver, crude oil)
     def if_d_commodities_exists():
+        """Check if Commodities Dimension Table is present in DWHS
+
+        Returns
+        -------
+        bool
+        """
         try:
             bq_client = bigquery.Client()
             query = 'select COUNT(`Date`) from `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES`'
@@ -161,6 +260,13 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             return False
 
     def query_commodities_dwh():
+        """Query commodities dwh table
+
+        Returns
+        -------
+        dataframe
+            Contains the historical commodities data from staging tables
+        """
         bq_client = bigquery.Client()
         query = """SELECT *
         FROM `stockprediction-344203.stock_prediction_datawarehouse.D_COMMODITIES` ORDER BY `Date` DESC"""
@@ -168,7 +274,14 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
 
         return df
 
-    def query_commodities_table(): # - ADDED
+    def query_commodities_table():
+        """Query gold, silver, crude oil staging tables
+
+        Returns
+        -------
+        dataframe
+            3 dataframes, gold, silver and crude oil respectivel
+        """
         gold_query = "select distinct * from `stockprediction-344203.stock_prediction_staging_dataset.distinct_gold`"
         gold_stage_df = bq_client.query(gold_query).to_dataframe()
 
@@ -180,13 +293,21 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
 
         return gold_stage_df, silver_stage_df, crude_oil_stage_df
 
-    def consolidate_commodities(gold_df, silver_df, crude_oil_df): # - ADDED
+    def consolidate_commodities(gold_df, silver_df, crude_oil_df):
+        """Combines gold, silver and crude oil into 1 table with Categories
+
+        Returns
+        -------
+        dataframe
+            Contains gold, silver and cruide oil into 1 df
+        """
         # Remove duplicates
         gold_df.drop_duplicates(inplace=True)
         silver_df.drop_duplicates(inplace=True)
         crude_oil_df.drop_duplicates(inplace=True)
 
         # Add Constant column for fact table later on
+        logging.info('Adding price categories')
         gold_df['Price Category'] = "Gold"
         silver_df['Price Category'] = "Silver"
         crude_oil_df['Price Category'] = "Crude Oil"
@@ -201,14 +322,30 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         # Sort by date and price category
         final_df = final_df.sort_values(by = ['Date', 'Price Category'])
         final_df = final_df.reset_index(drop = True)
+        logging.info('Combined gold, silver and crude oil into commodities')
         return final_df
 
     def transform_commodities():
+        """Transform commodities as required
+
+        Returns
+        -------
+        dataframe
+            Contains gold, silver and cruide oil into 1 df
+        """
+        logging.info('Start to query from staging tables for gold, silver and crude oil')
         gold_df, silver_df, crude_oil_df = query_commodities_table()
         final_df = consolidate_commodities(gold_df, silver_df, crude_oil_df)
         return final_df
 
     def update_commodities(new_df):
+        """Transform commodities as required
+
+        Returns
+        -------
+        dataframe
+            Contains gold, silver and cruide oil into 1 df with updated data
+        """
         commodities_temp = []
         old_df = query_commodities_dwh()
         old_df.rename({'Price_Category': 'Price Category'}, axis=1, inplace=True)
@@ -219,13 +356,17 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         return updated_df
 
     def commodities():
+        """Create commodities table
+        """
+        logging.info('Start to transform commodities table')
         df = transform_commodities()
         check_dwh = if_d_commodities_exists() 
         if check_dwh:
+            logging.info('Commodities table (Update)')
             result = update_commodities(df)
         else:
             result = df
-        print(result.head())
+        logging.info('Send commodities table to GCS bucket')
         result.to_parquet('gs://stock_prediction_is3107/final_commodities.parquet', engine='pyarrow', index=False)
   
     ############################
@@ -321,19 +462,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-    """# Create id for commodities
-    distinct_commodities = BigQueryOperator(
-        task_id = 'distinct_commodities_task',
-        use_legacy_sql = False,
-        sql = f'''
-        create or replace table `{PROJECT_ID}.{STAGING_DATASET}.final_commodity_prices` 
-        as select distinct
-        concat( FORMAT_TIMESTAMP('%Y-%m-%d', temp.Date) , '-', temp.Price_Category, '-COMM') as COMM_ID, *
-        from `{PROJECT_ID}.{STAGING_DATASET}.combined_commodity_prices` as temp
-        ''',
-        dag = dag
-    )"""
-
     # Add SMA to df
     sma_stock = PythonOperator(
         task_id = 'sma_stock_task',
@@ -398,7 +526,6 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
     distinct_stock_prices >> sma_stock >> load_sma
     distinct_interest >> lag_int >> load_lag_interest
     [distinct_exchange, load_lag_interest, load_sma] 
-    [distinct_gold, distinct_silver, distinct_crude_oil] >> combine_commodities >> load_commodities # - ADDED
-    #combine_commodities >> load_commodities >> distinct_commodities
+    [distinct_gold, distinct_silver, distinct_crude_oil] >> combine_commodities >> load_commodities
 
     return transform_taskgroup

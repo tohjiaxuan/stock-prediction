@@ -176,6 +176,15 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
 
     def helper_stock_price(tickers, start_date, end_date):
         """Get the most recent date present in Commodities Dimension Table
+        
+        Parameters
+        ----------
+        tickers: dataframe
+            All the ticker values for each stock
+        start_date:str
+            Oldest date required to extract stocks from
+        end_date: str
+            The date of DAG being triggered
 
         Returns
         -------

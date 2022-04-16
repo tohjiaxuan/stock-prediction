@@ -8,6 +8,7 @@ from airflow.utils.task_group import TaskGroup
 
 import os
 
+# Establish connection with DWH in BigQuery
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
@@ -16,7 +17,20 @@ PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
 
 def build_load_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for loading of data from GCS into staging tables
+
+    Parameters
+    ----------
+    dag: An airflow DAG
+
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     load_taskgroup = TaskGroup(group_id = 'load_taskgroup')
+
+    # Create / Append to stock fact table according to sql script
     f_stocks_table = BigQueryExecuteQueryOperator(
         task_id = 'f_stocks_table',
         use_legacy_sql = False,
@@ -32,6 +46,7 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Create / Append to exchange rate dimension table according to sql script
     d_exchange_table = BigQueryExecuteQueryOperator(
         task_id = 'd_exchange_table',
         use_legacy_sql = False,
@@ -47,7 +62,7 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
-
+    # Create / Append to interest rate dimension table according to sql script
     d_interest_table = BigQueryExecuteQueryOperator(
         task_id = 'd_interest_table',
         use_legacy_sql = False,
@@ -63,6 +78,7 @@ def build_load_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag
     )
 
+    # Create / Append to commodities dimension table according to sql script
     d_commodities_table = BigQueryExecuteQueryOperator(
         task_id = 'd_commodities_table',
         use_legacy_sql = False,

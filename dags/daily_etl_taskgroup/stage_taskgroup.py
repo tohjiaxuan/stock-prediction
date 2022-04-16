@@ -6,6 +6,7 @@ from google.cloud import storage
 
 import os
 
+# Establish connection with staging dataset in BigQuery
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
 bucket = storage_client.get_bucket('stock_prediction_is3107')
@@ -13,6 +14,17 @@ STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 
 def build_stage_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for loading of data from GCS into staging tables
+
+    Parameters
+    ----------
+    dag: An airflow DAG
+
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     stage_taskgroup = TaskGroup(group_id = "stage_taskgroup")
     
     # Load stock prices data from GCS to BQ
