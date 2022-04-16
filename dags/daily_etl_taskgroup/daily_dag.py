@@ -18,9 +18,11 @@ from daily_postgres_taskgroup import build_daily_postgres_taskgroup
 from load_taskgroup import build_load_taskgroup
 
 import json
-import os
+import logging
 import numpy as np
 import pandas as pd
+
+logging.basicConfig(level=logging.INFO)
 
 # Define arguments for the DAG
 default_args = {
@@ -49,7 +51,9 @@ def check_stocks(**kwargs):
     """
     df = kwargs["task_instance"].xcom_pull(task_ids="stock_scraping_data")
     if df.empty:
+        logging.info('No new stocks data detected, end DAG')
         return "end_task"
+    logging.info('Starting to push data to GCS')
     return "start_gcs_task"
 
 
