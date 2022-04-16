@@ -1,29 +1,31 @@
-from airflow.models import DAG
-from airflow.operators.python_operator import PythonOperator
-from airflow.operators.python import BranchPythonOperator
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from datetime import datetime, date
-from airflow.providers.http.sensors.http import HttpSensor
-from airflow.providers.http.operators.http import SimpleHttpOperator
-import json
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.bash_operator import BashOperator
-from airflow.operators.email_operator import EmailOperator
-import cchardet
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import urllib.request
-import os
-from google.cloud import storage
-from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
-from airflow.utils.task_group import TaskGroup
-from google.cloud.exceptions import NotFound
-from google.cloud import bigquery
+from airflow.models import DAG
+from airflow.models import TaskInstance
+from airflow.operators.bash_operator import BashOperator
+from airflow.operators.dummy_operator import DummyOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.providers.google.cloud.transfers.postgres_to_gcs import PostgresToGCSOperator
+from airflow.utils.task_group import TaskGroup
+from datetime import datetime, date
+from google.cloud import bigquery
+from google.cloud import storage
+
+from postgres_processing_daily import build_daily_postgres_taskgroup
+from extract_taskgroup import build_extract_taskgroup
+from load_taskgroup import build_load_taskgroup
+from stage_taskgroup import build_stage_taskgroup
+from transform_taskgroup import build_transform_taskgroup
+
+import cchardet
+import json
+import os
 import pandas_gbq
+import pandas_ta as ta
+import requests
+import urllib.request
 
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36"}
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
@@ -52,7 +54,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print('this is query')
             query = f'''
             INSERT INTO stocks_daily (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock)
-            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}', '{result[7]}', '{result[8]}');
+            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+             '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}', '{'NaN' if result[5] == None else result[5]}',
+              '{'NaN' if result[6] == None else result[6]}', '{'NaN' if result[7] == None else result[7]}', '{'NaN' if result[0] == None else result[8]}');
             '''
             print(query)
             execute_query_with_hook(query)
@@ -69,9 +73,14 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO exchange_rates_daily (end_of_day, preliminary, eur_sgd, gbp_sgd, usd_sgd, aud_sgd,
             cad_sgd, cny_sgd_100, hkd_sgd_100, inr_sgd_100, idr_sgd_100, jpy_sgd_100, krw_sgd_100, myr_sgd_100, twd_sgd_100,
             nzd_sgd, php_sgd_100, qar_sgd_100, sar_sgd_100, chf_sgd, thb_sgd_100, aed_sgd_100, vnd_sgd_100, timestamp) 
-            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}','{result[7]}',
-            '{result[8]}', '{result[9]}', '{result[10]}', '{result[11]}', '{result[12]}', '{result[13]}', '{result[14]}','{result[15]}',
-            '{result[16]}', '{result[17]}', '{result[18]}', '{result[19]}', '{result[20]}', '{result[21]}', '{result[22]}', '{result[23]}');
+            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+            '{'NaN' if result[6] == None else result[6]}','{'NaN' if result[7] == None else result[7]}','{'NaN' if result[8] == None else result[8]}',
+            '{'NaN' if result[9] == None else result[9]}', '{'NaN' if result[10] == None else result[10]}', '{'NaN' if result[11] == None else result[11]}',
+            '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}','{'NaN' if result[14] == None else result[14]}',
+            '{'NaN' if result[15] == None else result[15]}', '{'NaN' if result[16] == None else result[16]}', '{'NaN' if result[17] == None else result[17]}',
+            '{'NaN' if result[18] == None else result[18]}', '{'NaN' if result[19] == None else result[19]}', '{'NaN' if result[20] == None else result[20]}',
+            '{'NaN' if result[21] == None else result[21]}', '{'NaN' if result[22] == None else result[22]}', '{'NaN' if result[23] == None else result[23]}');
             '''
             print(query)
             execute_query_with_hook(query)
@@ -112,7 +121,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print('this is query')
             query = f'''
             INSERT INTO gold_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
-            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
+            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+            '{'NaN' if result[6] == None else result[6]}');
             '''
             print(query)
             execute_query_with_hook(query)
@@ -127,7 +138,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print('this is query')
             query = f'''
             INSERT INTO silver_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
-            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
+            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+            '{'NaN' if result[6] == None else result[6]}');
             '''
             print(query)
             execute_query_with_hook(query)
@@ -141,7 +154,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print('this is query')
             query = f'''
             INSERT INTO crude_oil_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
-            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}');
+            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+            '{'NaN' if result[6] == None else result[6]}');
             '''
             print(query)
             execute_query_with_hook(query)
