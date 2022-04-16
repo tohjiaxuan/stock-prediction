@@ -1,5 +1,5 @@
 # ETL & DWH Project
-The main aim of this project is to create a ETL pipeline using Apache Airlow and a data warehouse on BigQuery for downstream applicatinos such as Stock Analysis (Prediction) & Sentiment Analysis. 
+The main aim of this project is to create a ETL pipeline using Apache Airlow and a data warehouse on BigQuery for downstream applications such as Stock Analysis (Prediction) & Sentiment Analysis. 
 
 Deliverables for this project includes:
 1. 3 DAGs created using Python
@@ -18,14 +18,13 @@ Deliverables for this project includes:
 │   └── daily_postgres_taskgroup.py
 │   └── stage_taskgroup.py
 │   └── transform_taskgroup.py
-│   └── news_etl_taskgroup
-│       ├── daily_financial_news.py
-│       ├── extract_taskgroup.py
-│       ├── gcs_taskgroup.py
-│       ├── load_taskgroup.py
-│       ├── postgres_taskgroup.py
-│       ├── stage_taskgroup.py
-│       ├── transform_taskgroup.py
+│   └── daily_financial_news_dag.py
+│   └── extract_news_taskgroup.py
+│   └── gcs_news_taskgroup.py
+│   └── load_news_taskgroup.py
+│   └── postgres_news_taskgroup.py
+│   └── stage_news_taskgroup.py
+│   └── transform_news_taskgroup.py
 │   └── sql
 │       ├── D_commodities.sql
 │       ├── D_exchange_rate.sql
@@ -125,5 +124,5 @@ Port: 5432
 
 # Run DAGs
 1. Turn on all the DAGs but do not trigger them yet 
-2. Trigger `yearly_dag_etl` and `daily_financial_news` (order does not matter)
-**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearl_dag_etl` upon completion
+2. Trigger `yearly_dag_etl` and `daily_financial_news_dag` (order does not matter)
+**Note: `daily_dag` does not require user to manually trigger it. Will be triggered by `yearly_dag_etl` upon completion

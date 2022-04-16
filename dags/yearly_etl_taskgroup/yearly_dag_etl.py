@@ -144,7 +144,7 @@ with DAG(
     dag_path = BranchPythonOperator(
         task_id = 'dag_path',
         python_callable = decide_path,
-        do_xcom_push = False,
+        do_xcom_push = True,
         provide_context = True,
         dag = dag
     )
@@ -155,7 +155,7 @@ with DAG(
         bash_command = 'echo start',
         dag = dag
     )
-
+    
     # Trigger Daily DAG
     trigger = TriggerDagRunOperator (
         task_id='trigger_task',
@@ -183,3 +183,4 @@ with DAG(
     
     start_yearly >> section_0 >> dag_path >> [start_extract_task, end_yearly]
     start_extract_task >> section_1 >> section_2 >> section_3 >> section_4 >> section_postgres >> section_5 >> end_yearly >> trigger
+    
