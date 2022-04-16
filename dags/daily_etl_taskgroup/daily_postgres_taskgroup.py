@@ -13,7 +13,7 @@ from datetime import datetime, date
 from google.cloud import bigquery
 from google.cloud import storage
 
-from postgres_processing_daily import build_daily_postgres_taskgroup
+
 from extract_taskgroup import build_extract_taskgroup
 from load_taskgroup import build_load_taskgroup
 from stage_taskgroup import build_stage_taskgroup
