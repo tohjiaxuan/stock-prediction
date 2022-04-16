@@ -54,11 +54,12 @@ Deliverables for this project includes:
 
 # General Configurations needed
 1. Head to `airflow.cfg` and change `enable_xcom_pickling = True`
-2. Create GCS bucket on Google Cloud Platform
+2. Create GCS bucket on Google Cloud Platform (https://console.cloud.google.com/)
     1. Set location to asia-southeast1 (Singapore)
     2. Turn off object versioning, do not choose a retention policy and set encryption type to be google-managed key
     3. Set public access to be not public
     4. Developer should set the permissions by giving corresponding users the right access and role
+    5. Download the Google ServiceKey (in JSON)
 
 3. In the Airflow webserver, head to `Admin` > `Connections`. 
     1. Edit the `google_cloud_default` Conn Id by pasting the Google ServiceKey (in JSON format) in the `Keyfile JSON` field. 
