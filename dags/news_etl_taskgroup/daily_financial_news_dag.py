@@ -25,14 +25,14 @@ logging.basicConfig(level=logging.INFO)
 
 # Define arguments for the DAG
 default_args = {
-    'owner': 'Nicole',
-    'depends_on_past': False,
-    'email': [''], # Can change to the user of choice
-    'email_on_failure': True,
-    'email_on_retry': True,
-    'retries': 2, 
-    'retry_delay': timedelta(minutes=2),
-    'start_date': datetime(2022, 3, 15) # Change this date when first initialised
+    "owner": "airflow",
+    "depends_on_past": False,
+    "email": ["jxtoh99@gmail.com"],  # Can change to the user of choice
+    "email_on_failure": True,
+    "email_on_retry": True,
+    "retries": 2,
+    "retry_delay": timedelta(minutes=10),
+    "start_date": datetime(2022, 3, 15),  # Change this date when first initialised
 }
 
 def check_news(**kwargs):
