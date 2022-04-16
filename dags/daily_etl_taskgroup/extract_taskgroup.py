@@ -193,15 +193,17 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         """
         sgx = list(tickers['New Symbol']) 
         stocks =[]
-        print("Retrieve stocks from:", start_date, "till ", end_date)
+        logging.info(start_date)
+        logging.info(end_date)
         # Loop to get all historical prices
         for ticker in sgx:
             curr_ticker = yf.Ticker(ticker)
             curr_df = curr_ticker.history(start = start_date, end = end_date)
+            print(curr_df)
 
             # Check if df contains results
             if len(curr_df) == 0:
-                logging.info(ticker, " no information available in timeframe")
+                logging.info("No information available in timeframe")
                 continue
 
             # Check for duplicated indices (timestamp) and remove them
@@ -212,16 +214,28 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         
         # Usually either Friday or weekend data will lag and not be reported at midnight
         # Condition is used to check if that is the case, if it is just skip
+        col_names = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
+            'Stock_Splits', 'Stock']
         if len(stocks) == 0:
             # Create empty dataframe
-            col_names = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends',
-            'Stock_Splits', 'Stock']
             df = pd.DataFrame(columns=col_names)
         else:
             logging.info('Combining all stocks data into a dataframe')   
             # Concatenate all dfs
             df = pd.concat(stocks)
-        return df
+        
+        # Check if the data is really the date needed
+        start_date_timestamp = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date_timestamp = datetime.strptime(end_date, '%Y-%m-%d')
+
+        # Check if the dates of interest is inside or not
+        mask = (df.Date >= start_date_timestamp) & (df.Date <= end_date_timestamp)
+        if len(df.loc[mask]) > 0:
+            return df
+        else:
+            # Clear df
+            df = pd.DataFrame(columns = col_names)
+            return df
 
     def initialise_stock_price(start_date, end_date):
         """Get stocks data from 2018 to initialisation date
@@ -275,15 +289,12 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
             logging.info("Fact table exists, proceed to get start_date")
             pulled_date = get_recent_date()
             start_date = (datetime.strptime(pulled_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
-            logging.info("Start to extract stock prices (Update DWH")
+            logging.info("Start to extract stock prices (Update DWH)")
             stock_df = update_stock_price(start_date, curr_date)
         else:
             logging.info("Start to extract stocks data to populate DWH")
             stock_df = initialise_stock_price('2018-01-02', curr_date)
 
-        # Reorder columns to standardise them
-        stock_df = stock_df[['Date', 'Open', 'High', 'Low', 'Close', 
-        'Volume', 'Dividends', 'Stock_Splits', 'Stock']]
         return stock_df
 
     def helper_exchange_rate(initial_date):
@@ -353,6 +364,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
                 curr_old = curr_batch[index-1]['end_of_day']
         
         df = pd.DataFrame(er_init_batch)
+        df = df.applymap(str)
         return df
 
     def initialise_exchange_rate(start_date):
@@ -424,7 +436,7 @@ def build_extract_taskgroup(dag: DAG) -> TaskGroup:
         # Standardise order of columns
         ex_df = ex_df[['end_of_day', 'preliminary', 'eur_sgd', 'gbp_sgd', 'usd_sgd',
         'aud_sgd', 'cad_sgd', 'cny_sgd_100', 'hkd_sgd_100', 'inr_sgd_100', 'idr_sgd_100',
-        'jpy_sgd_100' 'krw_sgd_100', 'myr_sgd_100', 'twd_sgd_100', 'nzd_sgd',
+        'jpy_sgd_100', 'krw_sgd_100', 'myr_sgd_100', 'twd_sgd_100', 'nzd_sgd',
         'php_sgd_100', 'qar_sgd_100', 'sar_sgd_100', 'chf_sgd', 'thb_sgd_100',
         'aed_sgd_100', 'vnd_sgd_100', 'timestamp']]
         return ex_df
