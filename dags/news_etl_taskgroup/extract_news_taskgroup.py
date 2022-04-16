@@ -672,7 +672,7 @@ def build_extract_news_taskgroup(dag: DAG) -> TaskGroup:
         if check_dwh:
             pulled_date = get_recent_date()
             sginvestor_blog_df = sginvestor_blog_scraping_data_daily(pulled_date)
-            plogging.info("Scrape SG Investor Blog daily")
+            logging.info("Scrape SG Investor Blog daily")
         else: 
             sginvestor_blog_df = sginvestor_blog_scraping_data_init()
             logging.info("Scrape SG Investor Blog init")
