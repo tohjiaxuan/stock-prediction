@@ -116,7 +116,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
             curr_df['SMA_50'] = ta.sma(curr_df['Close'], length = 50, append=True)
             curr_df['SMA_200'] = ta.sma(curr_df['Close'], length=200, append=True)
             curr_df["GC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
-            curr_df["DC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+            curr_df["DC"] = ta.sma(curr_df['Close'], length = 50, append=True) < ta.sma(curr_df['Close'], length=200, append=True)
             sma_stocks.append(curr_df)
         
         # Transform to df
