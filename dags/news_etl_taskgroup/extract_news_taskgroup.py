@@ -102,6 +102,8 @@ def build_extract_news_taskgroup(dag: DAG) -> TaskGroup:
         df_final.reset_index(drop=True, inplace = True)  
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
+        df_final['Source'] = df_final['Source'].astype(str).str.replace("'", "")
+        df_final['Source'] = df_final['Source'].astype(str).str.replace('"', '')
         return df_final
 
     #################################
@@ -409,7 +411,7 @@ def build_extract_news_taskgroup(dag: DAG) -> TaskGroup:
             elif 'business-times' in src:
                 cleaned_source.append('The Business Times')
             else:
-                cleaned_source.append(src) 
+                cleaned_source.append('Others')
 
         # Convert to DataFrame
         cols = ['Title','Date','Link','Source','Comments']
@@ -580,6 +582,8 @@ def build_extract_news_taskgroup(dag: DAG) -> TaskGroup:
         df_final = check_date(df_final, pulled_date)
         df_final['Title'] = df_final['Title'].astype(str).str.replace("'", "")
         df_final['Title'] = df_final['Title'].astype(str).str.replace('"', '')
+        df_final['Source'] = df_final['Source'].astype(str).str.replace("'", "")
+        df_final['Source'] = df_final['Source'].astype(str).str.replace('"', '')
         return df_final
 
     #############
