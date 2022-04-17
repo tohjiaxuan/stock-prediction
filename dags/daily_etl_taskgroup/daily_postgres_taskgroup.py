@@ -397,6 +397,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         #Create final_stock postgres table
         for result in results:
             print('this is result')
+            print(len(result))
             print(result)
             print('this is query')
             query = f'''    
@@ -441,6 +442,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
         for result in results :
             print('this is result')
+            print(len(result))
             print(result)
             print('this is query')												
             query = f'''    
@@ -665,40 +667,60 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
     
-    create_distinct_exchange_rates_daily_table = PostgresOperator (
-    task_id = 'create_distinct_exchange_rates_daily_table',
-    dag = dag, 
-    postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
-    sql = '''
-        CREATE TABLE IF NOT EXISTS distinct_exchange_rates_daily (
-        Date TIMESTAMP,
-        EXR_ID TEXT, 
-        eur_sgd TEXT,
-        gbp_sgd TEXT,
-        usd_sgd TEXT, 
-        aud_sgd TEXT,
-        cad_sgd TEXT,
-        cny_sgd_100 TEXT,
-        hkd_sgd_100 TEXT,
-        inr_sgd_100 TEXT,
-        idr_sgd_100 TEXT,
-        jpy_sgd_100 TEXT,
-        krw_sgd_100 TEXT,
-        myr_sgd_100 TEXT,
-        twd_sgd_100 TEXT,
-        nzd_sgd TEXT,
-        php_sgd_100 TEXT,
-        qar_sgd_100 TEXT,
-        sar_sgd_100 TEXT,
-        chf_sgd TEXT,
-        thb_sgd_100 TEXT,
-        aed_sgd_100 TEXT,
-        vnd_sgd_100 TEXT, 
-        ex_rate_preliminary TEXT, 
-        ex_rate_timestamp TEXT
-        );
-        '''
-    )
+    # create_distinct_exchange_rates_daily_table = PostgresOperator (
+    # task_id = 'create_distinct_exchange_rates_daily_table',
+    # dag = dag, 
+    # postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
+    # sql = '''
+    #     CREATE TABLE IF NOT EXISTS distinct_exchange_rates_daily (
+    #     Date TIMESTAMP,
+    #     EXR_ID TEXT, 
+    #     eur_sgd TEXT,
+    #     gbp_sgd TEXT,
+    #     usd_sgd TEXT, 
+    #     aud_sgd TEXT,
+    #     cad_sgd TEXT,
+    #     cny_sgd_100 TEXT,
+    #     hkd_sgd_100 TEXT,
+    #     inr_sgd_100 TEXT,
+    #     idr_sgd_100 TEXT,
+    #     jpy_sgd_100 TEXT,
+    #     krw_sgd_100 TEXT,
+    #     myr_sgd_100 TEXT,
+    #     twd_sgd_100 TEXT,
+    #     nzd_sgd TEXT,
+    #     php_sgd_100 TEXT,
+    #     qar_sgd_100 TEXT,
+    #     sar_sgd_100 TEXT,
+    #     chf_sgd TEXT,
+    #     thb_sgd_100 TEXT,
+    #     aed_sgd_100 TEXT,
+    #     vnd_sgd_100 TEXT, 
+    #     ex_rate_preliminary TEXT, 
+    #     ex_rate_timestamp TEXT
+    #     );
+    #     '''
+    # )
+
+    #     # Python operator to create Postgres table for daily distinct stocks
+    # create_distinct_stock_daily_table = PostgresOperator ( 
+    # task_id = 'create_distinct_stock_daily_table',
+    # dag = dag, 
+    # postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
+    # sql = '''
+    #     CREATE TABLE IF NOT EXISTS distinct_stocks_daily (
+    #     Date TIMESTAMP,
+    #     Open REAL, 
+    #     High REAL,
+    #     Low REAL,
+    #     Close REAL,
+    #     Volume REAL,
+    #     Dividends REAL,
+    #     Stock_Splits INTEGER,
+    #     Stock TEXT 
+    #     );
+    #     '''
+    # )
 
     # Python operator to create Postgres table for daily final stocks
     create_final_stock_table = PostgresOperator (
@@ -967,7 +989,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
     start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily, create_commodities_daily_table]
     
     create_stocks_daily_table >> create_final_stock_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> sma_stock_postgres >> stocks_daily_df_bigquery
-    create_exchange_rates_daily_table >> create_distinct_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
+    create_exchange_rates_daily_table  >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
     create_interest_rates_daily_table >> create_final_interest_rate >> insert_interest_rates_daily_table >> distinct_interest_rates_daily_table >> lag_int_postgres >> cast_interest_rate_daily_table >> [distinct_interest_rates_df_bigquery, interest_rates_daily_df_bigquery, cast_int_rate_df_bigquery]
     create_table_gold_daily >> insert_gold_daily_table 
     create_table_silver_daily >> insert_silver_daily_table 
