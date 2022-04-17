@@ -19,7 +19,7 @@ LEFT JOIN
 ON 
 exchange_rate.Date = stocks.Date
 LEFT JOIN
-`{{ params.project_id }}.{{ params.staging_dataset }}.distinct_interest_rate` interest_rate
+`{{ params.project_id }}.{{ params.staging_dataset }}.casted_interest_rate` interest_rate
 ON
 interest_rate.Date = stocks.Date
 LEFT JOIN 
