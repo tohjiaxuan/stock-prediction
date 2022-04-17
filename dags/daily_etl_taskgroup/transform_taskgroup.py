@@ -152,7 +152,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         """
         bq_client = bigquery.Client()
         query = """SELECT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_interest_rate`
-        ORDER BY `Date` DESC"""
+        WHERE `Price_Category` = 'Stock' ORDER BY `Date` DESC"""
         df = bq_client.query(query).to_dataframe()
         logging.info('Queried from interest rate staging table')
 
