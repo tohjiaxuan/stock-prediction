@@ -276,7 +276,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         """
         # distinct_interest_rates_daily_df = pd.read_sql_query('select * from distinct_interest_rates_daily', con = engine)
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        distinct_interest_rates_daily_df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily_table;")
+        distinct_interest_rates_daily_df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily;")
         # print(distinct_interest_rates_daily_df)
         logging.info('distinct_interest_rates_daily dataframe')
     
@@ -339,9 +339,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         #Create final_stock postgres table
         query = f'''    
             INSERT INTO final_stock (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock, SMA_50, SMA_200, GC, DC, Price_Category)
-            VALUES ('{row["Date"]}', '{row["Open"]}', '{row["High"]}', '{row["Low"]}', '{row["Close"]}', '{row["Volume"]}',
-            '{row["Dividends"]}', '{row["Stock_Splits"]}', '{row["Stock"]}', '{row["SMA_50"]}', '{row["SMA_200"]}', '{row["GC"]}',
-            '{row["DC"]}', '{row["Price_Category"]}');
+            VALUES ('{result["Date"]}', '{result["Open"]}', '{result["High"]}', '{result["Low"]}', '{result["Close"]}', '{result["Volume"]}',
+            '{result["Dividends"]}', '{result["Stock_Splits"]}', '{result["Stock"]}', '{result["SMA_50"]}', '{result["SMA_200"]}', '{result["GC"]}',
+            '{result["DC"]}', '{result["Price_Category"]}');
             '''
         													
         logging.info(f'Query: {query}')
@@ -378,10 +378,10 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             INSERT INTO final_interest_rate (Actual_Date, INR_ID, aggregate_volume, calculation_method, comp_sora_1m, comp_sora_3m, comp_sora_6m,
             highest_transaction, lowest_transaction, published_date, sor_average, sora, sora_index, standing_facility_borrow, standing_facility_deposit,
             int_rate_preliminary, int_rate_timestamp, on_rmb_facility_rate, Date)
-            VALUES ('{row["Actual_Date"]}', '{row["INR_ID"]}', '{row["aggregate_volume"]}', '{row["calculation_method"]}', '{row["comp_sora_1m"]}', '{row["comp_sora_3m"]}',
-            '{row["comp_sora_6m"]}', '{row["highest_transaction"]}', '{row["lowest_transaction"]}', '{row["published_date"]}', '{row["sor_average"]}', '{row["sora"]}',
-            '{row["sora_index"]}', '{row["standing_facility_borrow"]}', '{row["standing_facility_deposit"]}', '{row["int_rate_preliminary"]}', '{row["int_rate_timestamp"]}',
-            '{row["on_rmb_facility_rate"]}','{row["Date"]}');
+            VALUES ('{lag_int_postgres["Actual_Date"]}', '{lag_int_postgres["INR_ID"]}', '{lag_int_postgres["aggregate_volume"]}', '{lag_int_postgres["calculation_method"]}', '{lag_int_postgres["comp_sora_1m"]}', '{lag_int_postgres["comp_sora_3m"]}',
+            '{lag_int_postgres["comp_sora_6m"]}', '{lag_int_postgres["highest_transaction"]}', '{lag_int_postgres["lowest_transaction"]}', '{lag_int_postgres["published_date"]}', '{lag_int_postgres["sor_average"]}', '{lag_int_postgres["sora"]}',
+            '{lag_int_postgres["sora_index"]}', '{lag_int_postgres["standing_facility_borlag_int_postgres"]}', '{lag_int_postgres["standing_facility_deposit"]}', '{lag_int_postgres["int_rate_preliminary"]}', '{lag_int_postgres["int_rate_timestamp"]}',
+            '{lag_int_postgres["on_rmb_facility_rate"]}','{lag_int_postgres["Date"]}');
             '''												
         logging.info(f'Query: {query}')
         execute_query_with_hook(query)
