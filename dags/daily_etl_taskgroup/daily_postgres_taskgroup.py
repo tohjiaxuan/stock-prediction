@@ -12,7 +12,7 @@ from airflow.utils.task_group import TaskGroup
 from datetime import datetime, date
 from google.cloud import bigquery
 from google.cloud import storage
-from sqlalchemy import create_engine
+# from sqlalchemy import create_engine
 
 import cchardet
 import logging
@@ -23,12 +23,11 @@ import pandas_ta as ta
 import requests
 import urllib.request
 import pandas as pd
-import psycopg2 as pg
-import sqlalchemy
+# from sqlalchemy import engine
+# import psycopg2 as pg
+# import sqlalchemy
 
-logging.basicConfig(level=logging.INFO)
-
-# Connect with BigQuery
+headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36"}
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
 storage_client = storage.Client()
 bq_client = bigquery.Client()
@@ -36,69 +35,42 @@ bucket = storage_client.get_bucket('stock_prediction_is3107')
 STAGING_DATASET = 'stock_prediction_staging_dataset'
 PROJECT_ID = 'stockprediction-344203'
 DWH_DATASET = 'stock_prediction_datawarehouse'
-
-# Connect with PostgreSQL
-engine = pg.connect("dbname='postgres_db' user='postgres_local' host='localhost' port='5432' password='airflow'")
-c_engine = create_engine('postgresql://postgres_local:airflow@localhost:5432/postgres_db')
+# engine = pg.connect("dbname='postgres_db' user='postgres_local' host='localhost' port='5432' password='airflow'")
+# c_engine = create_engine('postgresql://postgres_local:airflow@localhost:5432/postgres_db')
 
 def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
-    """Creates a taskgroup for extraction of data from various sources
-
-    Parameters
-    ----------
-    dag: An airflow DAG
-
-    Returns
-    -------
-    taskgroup
-        A taskgroup that contains all the functions and operators
-    """
     daily_postgres_taskgroup = TaskGroup(group_id = 'daily_postgres_taskgroup')
 
     # Function to execute query (Postgresql)
     def execute_query_with_hook(query):
-        """To execute query from PostgreSQL
-        
-        Parameters
-        ----------
-        str: sql query in string format
-
-        """
         hook = PostgresHook(postgres_conn_id="postgres_local")
         hook.run(query)
 
-    def insert_stocks_daily_table(ti):
-        """Insert extracted stocks data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """     
+    def insert_stocks_daily_table(ti):     
         stocks_df = ti.xcom_pull(task_ids='stock_scraping_data')
         df_list = stocks_df.values.tolist()
-        logging.info('Inserting results into stocks daily table')
+        print(df_list)
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO stocks_daily (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock)
             VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
              '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}', '{'NaN' if result[5] == None else result[5]}',
               '{'NaN' if result[6] == None else result[6]}', '{'NaN' if result[7] == None else result[7]}', '{'NaN' if result[0] == None else result[8]}');
             '''
+            print(query)
             execute_query_with_hook(query)
 
     def insert_exchange_rates_daily_table(ti):
-        """Insert extracted exchange rate data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """ 
         exchange_rates_df = ti.xcom_pull(task_ids='exchange_rate_scraping_data')
         df_list = exchange_rates_df.values.tolist()
-        logging.info('Inserting results into exchange rates table')
+        print(df_list)
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO exchange_rates_daily (end_of_day, preliminary, eur_sgd, gbp_sgd, usd_sgd, aud_sgd,
             cad_sgd, cny_sgd_100, hkd_sgd_100, inr_sgd_100, idr_sgd_100, jpy_sgd_100, krw_sgd_100, myr_sgd_100, twd_sgd_100,
@@ -112,20 +84,17 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '{'NaN' if result[18] == None else result[18]}', '{'NaN' if result[19] == None else result[19]}', '{'NaN' if result[20] == None else result[20]}',
             '{'NaN' if result[21] == None else result[21]}', '{'NaN' if result[22] == None else result[22]}', '{'NaN' if result[23] == None else result[23]}');
             '''
+            print(query)
             execute_query_with_hook(query)
     
     def insert_interest_rates_daily_table(ti):
-        """Insert extracted interest rate data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """ 
         interest_rates_df = ti.xcom_pull(task_ids='interest_rate_scraping_data')
         df_list = interest_rates_df.values.tolist()
-        logging.info('Inserting results into interest rate table')
+        print(df_list)
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO interest_rates_daily (aggregate_volume, calculation_method, commercial_bills_3m, comp_sora_1m, comp_sora_3m, comp_sora_6m,
             end_of_day, highest_transaction, interbank_12m, interbank_1m, interbank_1w, interbank_2m, interbank_3m, interbank_6m, interbank_overnight,
@@ -141,66 +110,57 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '{'NaN' if result[21] == None else result[21]}', '{'NaN' if result[22] == None else result[22]}', '{'NaN' if result[23] == None else result[23]}',
             '{'NaN' if result[24] == None else result[24]}', '{'NaN' if result[25] == None else result[25]}', '{'NaN' if result[26] == None else result[26]}');
             '''
+            print(query)
             execute_query_with_hook(query)
 
     def insert_gold_daily_table(ti):
-        """Insert extracted gold data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """ 
         gold_df = ti.xcom_pull(task_ids='gold_scraping_data')
         df_list = gold_df.values.tolist()
-        logging.info('Inserting results into gold table')
+        print(df_list)
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO gold_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
             VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
             '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
             '{'NaN' if result[6] == None else result[6]}');
             '''
+            print(query)
             execute_query_with_hook(query)
     
     def insert_silver_daily_table(ti):
-        """Insert extracted silver data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """ 
         silver_df = ti.xcom_pull(task_ids='silver_scraping_data')
         df_list = silver_df.values.tolist()
-        logging.info('Inserting results into silver table')
+        print(df_list)
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO silver_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
             VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
             '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
             '{'NaN' if result[6] == None else result[6]}');
             '''
+            print(query)
             execute_query_with_hook(query)
 
     def insert_crude_oil_daily_table(ti):
-        """Insert extracted crude oil data into PostgreSQL
-        
-        Parameters
-        ----------
-        ti: task instance from XCOMS
-        
-        """ 
         crude_oil_df = ti.xcom_pull(task_ids='crude_oil_scraping_data')
         df_list = crude_oil_df.values.tolist()
-        logging.info('Inserting results into crude oil table')
         for result in df_list:
+            print('this is result')
+            print(result)
+            print('this is query')
             query = f'''
             INSERT INTO crude_oil_daily (Date, Open, High, Low, Close, Adj_Close, Volume)
             VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
             '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
             '{'NaN' if result[6] == None else result[6]}');
             '''
+            print(query)
             execute_query_with_hook(query)
 
     ############################
@@ -299,8 +259,12 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dataframe
             Contains the distinct historical stocks data 
         """
-        distinct_stocks_daily_df = pd.read_sql_query('select * from distinct_stocks_daily', con=engine)
+        # distinct_stocks_daily_df = pd.read_sql_query('select * from distinct_stocks_daily', con=engine)
+        
+        hook = PostgresHook(postgres_conn_id="postgres_local")
+        distinct_stocks_daily_df = hook.get_pandas_df(sql="SELECT * from distinct_stocks_daily;")
         logging.info('distinct_stocks_daily dataframe')
+        # distinct_stocks_daily_df.rename(columns={'date':'Date'}, inplace=True)
         return distinct_stocks_daily_df
     
     def get_distinct_interest_rates_daily_df():
@@ -310,11 +274,14 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dataframe
             Contains the distinct historical interest rate data 
         """
-        distinct_interest_rates_daily_df = pd.read_sql_query('select * from distinct_interest_rates_daily', con=engine)
+        # distinct_interest_rates_daily_df = pd.read_sql_query('select * from distinct_interest_rates_daily', con = engine)
+        hook = PostgresHook(postgres_conn_id="postgres_local")
+        distinct_interest_rates_daily_df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily_table;")
+        # print(distinct_interest_rates_daily_df)
         logging.info('distinct_interest_rates_daily dataframe')
     
         # To prepare df for lagging dates, change column name
-        distinct_interest_rates_daily_df.rename(columns={'Date':'Actual Date'}, inplace=True)
+        # distinct_interest_rates_daily_df.rename(columns={'date':'Actual Date'}, inplace=True)
 
         return distinct_interest_rates_daily_df
     
@@ -326,8 +293,12 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dataframe
             Contains the distinct date from historical exchnage rate data from staging tables
         """
-        distinct_exchange_rates_daily_df = pd.read_sql_query('select Date from distinct_exchange_rates_daily order by Date desc', con=engine)
+        # distinct_exchange_rates_daily_df = pd.read_sql_query('select date from distinct_exchange_rates_daily order by date desc', con=engine)
+        hook = PostgresHook(postgres_conn_id="postgres_local")
+        distinct_exchange_rates_daily_df = hook.get_pandas_df(sql="SELECT Date from distinct_exchange_rates_daily order by date desc;")
         logging.info('distinct_exchange_rates_daily dataframe')
+
+        # distinct_exchange_rates_daily_df.rename(columns={'date':'Date'}, inplace=True)
         return distinct_exchange_rates_daily_df
 
     def update_sma():
@@ -366,7 +337,16 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             logging.info('Completed SMA, GC and DC initialisation')
         
         #Create final_stock postgres table
-        result.to_sql('final_stock', c_engine)
+        query = f'''    
+            INSERT INTO final_stock (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock, SMA_50, SMA_200, GC, DC, Price_Category)
+            VALUES ('{row["Date"]}', '{row["Open"]}', '{row["High"]}', '{row["Low"]}', '{row["Close"]}', '{row["Volume"]}',
+            '{row["Dividends"]}', '{row["Stock_Splits"]}', '{row["Stock"]}', '{row["SMA_50"]}', '{row["SMA_200"]}', '{row["GC"]}',
+            '{row["DC"]}', '{row["Price_Category"]}');
+            '''
+        													
+        logging.info(f'Query: {query}')
+        execute_query_with_hook(query)
+        # result.to_sql('final_stock', c_engine)
     
     def lag_int_postgres():
         """Obtain lagged date for interest rate
@@ -393,7 +373,19 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             lag_int_postgres.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
 
         logging.info("Create final_interest_rate postgres table")
-        lag_int_postgres.to_sql('final_interest_rate', c_engine)
+        																		
+        query = f'''    
+            INSERT INTO final_interest_rate (Actual_Date, INR_ID, aggregate_volume, calculation_method, comp_sora_1m, comp_sora_3m, comp_sora_6m,
+            highest_transaction, lowest_transaction, published_date, sor_average, sora, sora_index, standing_facility_borrow, standing_facility_deposit,
+            int_rate_preliminary, int_rate_timestamp, on_rmb_facility_rate, Date)
+            VALUES ('{row["Actual_Date"]}', '{row["INR_ID"]}', '{row["aggregate_volume"]}', '{row["calculation_method"]}', '{row["comp_sora_1m"]}', '{row["comp_sora_3m"]}',
+            '{row["comp_sora_6m"]}', '{row["highest_transaction"]}', '{row["lowest_transaction"]}', '{row["published_date"]}', '{row["sor_average"]}', '{row["sora"]}',
+            '{row["sora_index"]}', '{row["standing_facility_borrow"]}', '{row["standing_facility_deposit"]}', '{row["int_rate_preliminary"]}', '{row["int_rate_timestamp"]}',
+            '{row["on_rmb_facility_rate"]}','{row["Date"]}');
+            '''												
+        logging.info(f'Query: {query}')
+        execute_query_with_hook(query)
+        # lag_int_postgres.to_sql('final_interest_rate', c_engine)
 
     insert_stocks_daily_table = PythonOperator(
         task_id = 'insert_stocks_daily_table',
@@ -597,8 +589,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         postgres_conn_id = "postgres_local",
         sql = '''
         SELECT *
-        INTO distinct_stocks_daily FROM
-        (SELECT DISTINCT * from stocks_daily) AS stocks_daily
+        into distinct_stocks_daily from
+        (SELECT DISTINCT * from stocks_daily) as stocks_daily
         '''
     )
 
@@ -607,8 +599,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') AS Date,
-        CONCAT(end_of_day, '-EXR') AS EXR_ID, 
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        concat(end_of_day, '-EXR') as EXR_ID, 
         eur_sgd,
         gbp_sgd,
         usd_sgd, 
@@ -632,8 +624,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         vnd_sgd_100, 
         preliminary as ex_rate_preliminary, 
         timestamp as ex_rate_timestamp
-        INTO distinct_exchange_rates_daily
-        FROM(SELECT * from exchange_rates_daily) AS ex_rates_daily
+        into distinct_exchange_rates_daily
+        from(SELECT * from exchange_rates_daily) as ex_rates_daily
         '''
     )
 
@@ -642,8 +634,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') AS Date,
-        CONCAT(end_of_day, '-INR') AS INR_ID, 
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        concat(end_of_day, '-INR') as INR_ID, 
         aggregate_volume,
         calculation_method,
         comp_sora_1m,
@@ -660,8 +652,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         preliminary as int_rate_preliminary,
         timestamp as int_rate_timestamp,
         CAST(on_rmb_facility_rate AS TEXT) AS on_rmb_facility_rate
-        INTO distinct_interest_rates_daily 
-        FROM (SELECT * from interest_rates_daily) AS ir_daily
+        into distinct_interest_rates_daily 
+        from (SELECT * from interest_rates_daily) as ir_daily
         '''
     )
 
@@ -670,16 +662,16 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        SELECT DISTINCT CONCAT(to_date(CAST(Date AS TEXT),'YYYY-MM-DD'), '-', Price_Category, '-COMM') AS COMM_ID,
+        SELECT DISTINCT concat(to_date(cast(Date as TEXT),'YYYY-MM-DD'), '-', Price_Category, '-COMM') as COMM_ID,
         * INTO distinct_commodities_daily FROM
-            (SELECT DISTINCT * FROM (
-                (SELECT *, 'Gold' AS Price_Category FROM gold_daily)
+            (SELECT DISTINCT * from (
+                (SELECT *, 'Gold' as Price_Category from gold_daily)
                     union all 
-                (SELECT *, 'Silver' AS Price_Category FROM silver_daily)
+                (SELECT *, 'Silver' as Price_Category from silver_daily)
                     union all 
-                (SELECT *, 'Crude Oil' AS Price_Category FROM crude_oil_daily)
-            )  AS a
-        ) AS b 
+                (SELECT *, 'Crude Oil' as Price_Category from crude_oil_daily)
+            )  as a
+        ) as b 
         '''  
     )
 
@@ -688,8 +680,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') AS Date,
-        CONCAT(end_of_day, '-INR') AS INR_ID, 
+        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
+        concat(end_of_day, '-INR') as INR_ID, 
         CAST(aggregate_volume AS double precision) AS aggregate_volume,
         CAST(calculation_method AS TEXT) AS calculation_method,
         CAST(comp_sora_1m AS double precision) AS comp_sora_1m,
@@ -706,8 +698,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         CAST(standing_facility_deposit AS TEXT) AS standing_facility_deposit,
         CAST(int_rate_preliminary AS integer) AS int_rate_preliminary, 
         CAST(int_rate_timestamp AS TEXT) AS int_rate_timestamp,
-        INTO cast_interest_rate_daily
-        FROM (SELECT * FROM final_interest_rate) AS ir_daily
+        into cast_interest_rate_daily
+        from (SELECT * from final_interest_rate) as ir_daily
         '''  
     )
 
@@ -726,32 +718,32 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     def stocks_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM final_stock;")
+        df = hook.get_pandas_df(sql="SELECT * from final_stock;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_hist_prices', project_id=PROJECT_ID, if_exists='replace') 
     
     def exchange_rates_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM distinct_exchange_rates_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_exchange_rates_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.distinct_exchange_rate', project_id=PROJECT_ID, if_exists='replace') 
 
     def distinct_interest_rates_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM distinct_interest_rates_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_interest_rates_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.distinct_interest_rate', project_id=PROJECT_ID, if_exists='replace')
 
     def interest_rates_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM final_interest_rate;")
+        df = hook.get_pandas_df(sql="SELECT * from final_interest_rate;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_interest_rate', project_id=PROJECT_ID, if_exists='replace')
 
     def cast_int_rate_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM cast_interest_rate_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from cast_interest_rate_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.casted_interest_rate', project_id=PROJECT_ID, if_exists='replace') 
 
     def commodities_daily_df_bigquery(**kwargs):
         hook = PostgresHook(postgres_conn_id="postgres_local")
-        df = hook.get_pandas_df(sql="SELECT * FROM distinct_commodities_daily;")
+        df = hook.get_pandas_df(sql="SELECT * from distinct_commodities_daily;")
         pandas_gbq.to_gbq(df, 'stock_prediction_staging_dataset.final_commodity_prices', project_id=PROJECT_ID, if_exists='replace') 
 
     # Add SMA to df
