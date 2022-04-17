@@ -121,10 +121,10 @@ def build_postgres_news_taskgroup(dag: DAG) -> TaskGroup:
     sql = '''
         CREATE TABLE IF NOT EXISTS financial_news (
         Id SERIAL PRIMARY KEY,
-        Ticker TEXT NOT NULL,
-        Title TEXT NOT NULL,
-        Date TEXT,
-        Link TEXT NOT NULL,
+        Ticker TEXT,
+        Title TEXT,
+        Date TIMESTAMP,
+        Link TEXT,
         Source TEXT,
         Comments TEXT
         );
