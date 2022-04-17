@@ -24,8 +24,8 @@ import requests
 import urllib.request
 import pandas as pd
 # from sqlalchemy import engine
-# import psycopg2 as pg
-# import sqlalchemy
+import psycopg2 as pg
+import sqlalchemy
 
 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36"}
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/home/airflow/airflow/dags/stockprediction_servicekey.json'
@@ -39,14 +39,37 @@ DWH_DATASET = 'stock_prediction_datawarehouse'
 # c_engine = create_engine('postgresql://postgres_local:airflow@localhost:5432/postgres_db')
 
 def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
+    """Creates a taskgroup for transformation on-premise using Postgresql tables. 
+    Parameters
+    ----------
+    dag: An airflow DAG
+    Returns
+    -------
+    taskgroup
+        A taskgroup that contains all the functions and operators
+    """
     daily_postgres_taskgroup = TaskGroup(group_id = 'daily_postgres_taskgroup')
 
     # Function to execute query (Postgresql)
     def execute_query_with_hook(query):
+        """ Executes query using hook
+
+        Parameters
+        ----------
+        query
+
+        """
         hook = PostgresHook(postgres_conn_id="postgres_local")
         hook.run(query)
 
-    def insert_stocks_daily_table(ti):     
+    def insert_stocks_daily_table(ti):   
+        """ Inserts scraped stocks daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         stocks_df = ti.xcom_pull(task_ids='stock_scraping_data')
         df_list = stocks_df.values.tolist()
         print(df_list)
@@ -64,6 +87,13 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             execute_query_with_hook(query)
 
     def insert_exchange_rates_daily_table(ti):
+        """ Inserts scraped exchange rates daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         exchange_rates_df = ti.xcom_pull(task_ids='exchange_rate_scraping_data')
         df_list = exchange_rates_df.values.tolist()
         print(df_list)
@@ -88,6 +118,13 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             execute_query_with_hook(query)
     
     def insert_interest_rates_daily_table(ti):
+        """ Inserts scraped interest rates daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         interest_rates_df = ti.xcom_pull(task_ids='interest_rate_scraping_data')
         df_list = interest_rates_df.values.tolist()
         print(df_list)
@@ -114,6 +151,13 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             execute_query_with_hook(query)
 
     def insert_gold_daily_table(ti):
+        """ Inserts scraped gold daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         gold_df = ti.xcom_pull(task_ids='gold_scraping_data')
         df_list = gold_df.values.tolist()
         print(df_list)
@@ -131,6 +175,13 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             execute_query_with_hook(query)
     
     def insert_silver_daily_table(ti):
+        """ Inserts scraped silver daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         silver_df = ti.xcom_pull(task_ids='silver_scraping_data')
         df_list = silver_df.values.tolist()
         print(df_list)
@@ -148,6 +199,13 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             execute_query_with_hook(query)
 
     def insert_crude_oil_daily_table(ti):
+        """ Inserts scraped crude_oil daily into Postgres table
+
+        Parameters
+        ----------
+        ti
+
+        """  
         crude_oil_df = ti.xcom_pull(task_ids='crude_oil_scraping_data')
         df_list = crude_oil_df.values.tolist()
         for result in df_list:
@@ -264,7 +322,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         hook = PostgresHook(postgres_conn_id="postgres_local")
         distinct_stocks_daily_df = hook.get_pandas_df(sql="SELECT * from distinct_stocks_daily;")
         logging.info('distinct_stocks_daily dataframe')
-        # distinct_stocks_daily_df.rename(columns={'date':'Date'}, inplace=True)
+        distinct_stocks_daily_df.rename(columns={'date':'Date'}, inplace=True)
         return distinct_stocks_daily_df
     
     def get_distinct_interest_rates_daily_df():
@@ -281,7 +339,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         logging.info('distinct_interest_rates_daily dataframe')
     
         # To prepare df for lagging dates, change column name
-        # distinct_interest_rates_daily_df.rename(columns={'date':'Actual Date'}, inplace=True)
+        distinct_interest_rates_daily_df.rename(columns={'date':'Actual Date'}, inplace=True)
 
         return distinct_interest_rates_daily_df
     
@@ -291,14 +349,14 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         Returns
         -------
         dataframe
-            Contains the distinct date from historical exchnage rate data from staging tables
+            Contains the distinct date from historical exchaNge rate data from staging tables
         """
         # distinct_exchange_rates_daily_df = pd.read_sql_query('select date from distinct_exchange_rates_daily order by date desc', con=engine)
         hook = PostgresHook(postgres_conn_id="postgres_local")
         distinct_exchange_rates_daily_df = hook.get_pandas_df(sql="SELECT Date from distinct_exchange_rates_daily order by date desc;")
         logging.info('distinct_exchange_rates_daily dataframe')
 
-        # distinct_exchange_rates_daily_df.rename(columns={'date':'Date'}, inplace=True)
+        distinct_exchange_rates_daily_df.rename(columns={'date':'Date'}, inplace=True)
         return distinct_exchange_rates_daily_df
 
     def update_sma():
@@ -328,25 +386,32 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         # If it exists, then we just have to update SMA instead of populating for everying
         if check_dwh:
             logging.info('Start to update SMA, GC and DC for updated stock data')
-            result = update_sma()
+            results = update_sma()
             logging.info('Completed SMA, GC and DC update')
         else:
             logging.info('Start to initialise SMA, GC and DC')
             temp = get_distinct_stocks_daily_df()
-            result = helper_sma_prices(temp)
+            results = helper_sma_prices(temp)
             logging.info('Completed SMA, GC and DC initialisation')
         
         #Create final_stock postgres table
-        query = f'''    
-            INSERT INTO final_stock (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock, SMA_50, SMA_200, GC, DC, Price_Category)
-            VALUES ('{result["Date"]}', '{result["Open"]}', '{result["High"]}', '{result["Low"]}', '{result["Close"]}', '{result["Volume"]}',
-            '{result["Dividends"]}', '{result["Stock_Splits"]}', '{result["Stock"]}', '{result["SMA_50"]}', '{result["SMA_200"]}', '{result["GC"]}',
-            '{result["DC"]}', '{result["Price_Category"]}');
-            '''
+        for result in results:
+            print('this is result')
+            print(result)
+            print('this is query')
+            query = f'''    
+                INSERT INTO final_stock (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock, SMA_50, SMA_200, GC, DC, Price_Category)
+                VALUES 
+                ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+                '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+                '{'NaN' if result[6] == None else result[6]}','{'NaN' if result[7] == None else result[7]}','{'NaN' if result[8] == None else result[8]}',
+                '{'NaN' if result[9] == None else result[9]}', '{'NaN' if result[10] == None else result[10]}', '{'NaN' if result[11] == None else result[11]}',
+                '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}');
+                '''
         													
-        logging.info(f'Query: {query}')
-        execute_query_with_hook(query)
-        # result.to_sql('final_stock', c_engine)
+            logging.info(f'Query: {query}')
+            execute_query_with_hook(query)
+            # result.to_sql('final_stock', c_engine)
     
     def lag_int_postgres():
         """Obtain lagged date for interest rate
@@ -365,64 +430,76 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         if (len(ex_df) < len(int_df)):
             int_df = int_df.iloc[1:]
         
-        lag_int_postgres = int_df
-        lag_int_postgres['Date'] = dates
+        results = int_df
+        results['Date'] = dates
 
         # Rename columns to ensure consistency
-        if 'date' in lag_int_postgres.columns and 'inr_id' in lag_int_postgres.columns:
-            lag_int_postgres.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
+        if 'date' in results.columns and 'inr_id' in results.columns:
+            results.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
 
         logging.info("Create final_interest_rate postgres table")
-        																		
-        query = f'''    
+
+        for result in results :
+            print('this is result')
+            print(result)
+            print('this is query')												
+            query = f'''    
             INSERT INTO final_interest_rate (Actual_Date, INR_ID, aggregate_volume, calculation_method, comp_sora_1m, comp_sora_3m, comp_sora_6m,
             highest_transaction, lowest_transaction, published_date, sor_average, sora, sora_index, standing_facility_borrow, standing_facility_deposit,
             int_rate_preliminary, int_rate_timestamp, on_rmb_facility_rate, Date)
-            VALUES ('{lag_int_postgres["Actual_Date"]}', '{lag_int_postgres["INR_ID"]}', '{lag_int_postgres["aggregate_volume"]}', '{lag_int_postgres["calculation_method"]}', '{lag_int_postgres["comp_sora_1m"]}', '{lag_int_postgres["comp_sora_3m"]}',
-            '{lag_int_postgres["comp_sora_6m"]}', '{lag_int_postgres["highest_transaction"]}', '{lag_int_postgres["lowest_transaction"]}', '{lag_int_postgres["published_date"]}', '{lag_int_postgres["sor_average"]}', '{lag_int_postgres["sora"]}',
-            '{lag_int_postgres["sora_index"]}', '{lag_int_postgres["standing_facility_borlag_int_postgres"]}', '{lag_int_postgres["standing_facility_deposit"]}', '{lag_int_postgres["int_rate_preliminary"]}', '{lag_int_postgres["int_rate_timestamp"]}',
-            '{lag_int_postgres["on_rmb_facility_rate"]}','{lag_int_postgres["Date"]}');
-            '''												
-        logging.info(f'Query: {query}')
-        execute_query_with_hook(query)
-        # lag_int_postgres.to_sql('final_interest_rate', c_engine)
+            VALUES('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
+            '{'NaN' if result[6] == None else result[6]}','{'NaN' if result[7] == None else result[7]}','{'NaN' if result[8] == None else result[8]}',
+            '{'NaN' if result[9] == None else result[9]}', '{'NaN' if result[10] == None else result[10]}', '{'NaN' if result[11] == None else result[11]}',
+            '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}','{'NaN' if result[14] == None else result[14]}',
+            '{'NaN' if result[15] == None else result[15]}', '{'NaN' if result[16] == None else result[16]}', '{'NaN' if result[17] == None else result[17]}');
+            '''
+            logging.info(f'Query: {query}')
+            execute_query_with_hook(query)
 
+    # Python operator to insert daily stocks into table
     insert_stocks_daily_table = PythonOperator(
         task_id = 'insert_stocks_daily_table',
         python_callable = insert_stocks_daily_table,
         dag = dag
     )
 
+    # Python operator to insert daily exchange rates into table
     insert_exchange_rates_daily_table = PythonOperator(
         task_id = 'insert_exchange_rates_daily_table',
         python_callable = insert_exchange_rates_daily_table,
         dag = dag
     )
 
+    # Python operator to insert daily interest rates into table
     insert_interest_rates_daily_table = PythonOperator(
         task_id = 'insert_interest_rates_daily_table',
         python_callable = insert_interest_rates_daily_table,
         dag = dag
     )
 
+    # Python operator to insert daily gold into table
     insert_gold_daily_table = PythonOperator(
         task_id = 'insert_gold_daily_table',
         python_callable = insert_gold_daily_table,
         dag = dag
     )
 
+    # Python operator to insert daily silver into table
     insert_silver_daily_table = PythonOperator(
         task_id = 'insert_silver_daily_table',
         python_callable = insert_silver_daily_table,
         dag = dag
     )
 
+    # Python operator to insert daily crude oil into table
     insert_crude_oil_daily_table = PythonOperator(
         task_id = 'insert_crude_oil_daily_table',
         python_callable = insert_crude_oil_daily_table,
         dag = dag
     )
-
+    
+    # Python operator to create Postgres table for daily stocks
     create_stocks_daily_table = PostgresOperator ( 
     task_id = 'create_stocks_daily_table',
     dag = dag, 
@@ -441,7 +518,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         );
         '''
     )
-             
+    
+    # Python operator to create Postgres table for daily exchange rates    
     create_exchange_rates_daily_table = PostgresOperator (
     task_id = 'create_exchange_rates_daily_table',
     dag = dag, 
@@ -475,7 +553,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         );
         '''
     )
-  
+    
+    # Python operator to create Postgres table for daily interest rates    
     create_interest_rates_daily_table = PostgresOperator (
     task_id = 'create_interest_rates_daily_table',
     dag = dag, 
@@ -513,6 +592,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
 
+    # Python operator to create Postgres table for daily gold
     create_table_gold_daily = PostgresOperator (
     task_id = 'create_table_gold_daily',
     dag = dag, 
@@ -530,6 +610,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
 
+    # Python operator to create Postgres table for daily silver
     create_table_silver_daily = PostgresOperator (
     task_id = 'create_table_silver_daily',
     dag = dag, 
@@ -547,6 +628,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
     
+    # Python operator to create Postgres table for daily crude oil
     create_table_crude_oil_daily = PostgresOperator (
     task_id = 'create_table_crude_oil_daily',
     dag = dag, 
@@ -563,7 +645,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         );
         '''
     )
-
+    # Python operator to create Postgres table for daily commodities
     create_commodities_daily_table = PostgresOperator (
     task_id = 'create_commodities_daily_table',
     dag = dag, 
@@ -582,7 +664,99 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         );
         '''
     )
+    
+    create_distinct_exchange_rates_daily_table = PostgresOperator (
+    task_id = 'create_distinct_exchange_rates_daily_table',
+    dag = dag, 
+    postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
+    sql = '''
+        CREATE TABLE IF NOT EXISTS distinct_exchange_rates_daily (
+        Date TIMESTAMP,
+        EXR_ID TEXT, 
+        eur_sgd TEXT,
+        gbp_sgd TEXT,
+        usd_sgd TEXT, 
+        aud_sgd TEXT,
+        cad_sgd TEXT,
+        cny_sgd_100 TEXT,
+        hkd_sgd_100 TEXT,
+        inr_sgd_100 TEXT,
+        idr_sgd_100 TEXT,
+        jpy_sgd_100 TEXT,
+        krw_sgd_100 TEXT,
+        myr_sgd_100 TEXT,
+        twd_sgd_100 TEXT,
+        nzd_sgd TEXT,
+        php_sgd_100 TEXT,
+        qar_sgd_100 TEXT,
+        sar_sgd_100 TEXT,
+        chf_sgd TEXT,
+        thb_sgd_100 TEXT,
+        aed_sgd_100 TEXT,
+        vnd_sgd_100 TEXT, 
+        ex_rate_preliminary TEXT, 
+        ex_rate_timestamp TEXT
+        );
+        '''
+    )
 
+    # Python operator to create Postgres table for daily final stocks
+    create_final_stock_table = PostgresOperator (
+    task_id = 'create_final_stock_table',
+    dag = dag, 
+    postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
+    sql = '''
+        CREATE TABLE IF NOT EXISTS final_stock (
+        Date TIMESTAMP,
+        Open double precision, 
+        High double precision,
+        Low double precision,
+        Close double precision,
+        Volume double precision,
+        Dividends double precision,
+        Stock_Splits integer,
+        Stock TEXT,
+        SMA_50 double precision,
+        SMA_200 double precision,
+        GC BOOLEAN,
+        DC BOOLEAN,
+        Price_Category TEXT
+        );
+        '''
+    )
+
+    # Python operator to create Postgres table for daily final interest rate
+    create_final_interest_rate = PostgresOperator (
+    task_id = 'create_final_interest_rate',
+    dag = dag, 
+    postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
+    sql = '''
+        CREATE TABLE IF NOT EXISTS final_interest_rate (
+        Actual_Date TIMESTAMP,
+        INR_ID TEXT,
+        aggregate_volume double precision, 
+        calculation_method TEXT,
+        comp_sora_1m double precision,
+        comp_sora_3m double precision,
+        comp_sora_6m double precision,
+        highest_transaction double precision,
+        lowest_transaction double precision,
+        published_date TEXT,
+        sor_average double precision,
+        sora double precision,	
+        sora_index double precision,	
+        standing_facility_borrow TEXT,	
+        standing_facility_deposit TEXT,	
+        int_rate_preliminary integer, 	 
+        int_rate_timestamp TEXT,	
+        on_rmb_facility_rate integer,	
+        Date TIMESTAMP
+        );
+        '''
+    )
+
+
+    # Python operator to create Postgres table for daily distinct stocks
     distinct_stocks_daily_table = PostgresOperator(
         task_id = 'distinct_stocks_daily_table',
         dag = dag,
@@ -792,9 +966,9 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
     start_daily_transformation_postgres >> [create_stocks_daily_table, create_exchange_rates_daily_table, create_interest_rates_daily_table, create_table_gold_daily, create_table_silver_daily, create_table_crude_oil_daily, create_commodities_daily_table]
     
-    create_stocks_daily_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> sma_stock_postgres >> stocks_daily_df_bigquery
-    create_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
-    create_interest_rates_daily_table >> insert_interest_rates_daily_table >> distinct_interest_rates_daily_table >> lag_int_postgres >> cast_interest_rate_daily_table >> [distinct_interest_rates_df_bigquery, interest_rates_daily_df_bigquery, cast_int_rate_df_bigquery]
+    create_stocks_daily_table >> create_final_stock_table >> insert_stocks_daily_table >> distinct_stocks_daily_table >> sma_stock_postgres >> stocks_daily_df_bigquery
+    create_exchange_rates_daily_table >> create_distinct_exchange_rates_daily_table >> insert_exchange_rates_daily_table >> distinct_exchange_rates_daily_table >> exchange_rates_daily_df_bigquery
+    create_interest_rates_daily_table >> create_final_interest_rate >> insert_interest_rates_daily_table >> distinct_interest_rates_daily_table >> lag_int_postgres >> cast_interest_rate_daily_table >> [distinct_interest_rates_df_bigquery, interest_rates_daily_df_bigquery, cast_int_rate_df_bigquery]
     create_table_gold_daily >> insert_gold_daily_table 
     create_table_silver_daily >> insert_silver_daily_table 
     create_table_crude_oil_daily >> insert_crude_oil_daily_table
