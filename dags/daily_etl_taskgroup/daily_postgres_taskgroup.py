@@ -23,6 +23,7 @@ import pandas_ta as ta
 import requests
 import urllib.request
 import pandas as pd
+import numpy as np
 # from sqlalchemy import engine
 import psycopg2 as pg
 import sqlalchemy
@@ -79,10 +80,11 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             print('this is query')
             query = f'''
             INSERT INTO stocks_daily (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock)
-            VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
-             '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}', '{'NaN' if result[5] == None else result[5]}',
-              '{'NaN' if result[6] == None else result[6]}', '{'NaN' if result[7] == None else result[7]}', '{'NaN' if result[0] == None else result[8]}');
+            VALUES ('{result[0]}', '{result[1]}', '{result[2]}', '{result[3]}', '{result[4]}', '{result[5]}', '{result[6]}', '{result[7]}', '{result[8]}')
             '''
+            #   VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+            #  '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}', '{'NaN' if result[5] == None else result[5]}',
+            #   '{'NaN' if result[6] == None else result[6]}', '{'NaN' if result[7] == None else result[7]}', '{'NaN' if result[0] == None else result[8]}');
             print(query)
             execute_query_with_hook(query)
 
@@ -112,7 +114,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}','{'NaN' if result[14] == None else result[14]}',
             '{'NaN' if result[15] == None else result[15]}', '{'NaN' if result[16] == None else result[16]}', '{'NaN' if result[17] == None else result[17]}',
             '{'NaN' if result[18] == None else result[18]}', '{'NaN' if result[19] == None else result[19]}', '{'NaN' if result[20] == None else result[20]}',
-            '{'NaN' if result[21] == None else result[21]}', '{'NaN' if result[22] == None else result[22]}', '{'NaN' if result[23] == None else result[23]}');
+            '{'NaN' if result[21] == None else result[21]}', '{'NaN' if result[22] == None else result[22]}', '{'NaN' if result[23] == None else result[23]}')
             '''
             print(query)
             execute_query_with_hook(query)
@@ -261,7 +263,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         # Query 6000 rows because we require 200 days worth of past data for each stock
         # Value can change depending on the number of days for SMA / stock (30*200)
         query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
-        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
+        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` WHERE `Price_Category` = 'Stock' ORDER BY `Date` DESC LIMIT 6000"""
         df = bq_client.query(query).to_dataframe()
         return df
 
@@ -291,14 +293,41 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             curr_df = curr_df.reset_index(drop = True)
 
             # Forward fill values
+            curr_df.replace({None: np.nan}, inplace = True)
+            
+            curr_df = curr_df.fillna(method='ffill')
+
             if (curr_df.isnull().values.any() == True):
+                print("enter")
                 curr_df = curr_df.fillna(method='ffill')
-                    
+
+            print("curr df")   
+            print(curr_df)
             # Conduct TA analysis
             curr_df['SMA_50'] = ta.sma(curr_df['Close'], length = 50, append=True)
             curr_df['SMA_200'] = ta.sma(curr_df['Close'], length=200, append=True)
-            curr_df["GC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
-            curr_df["DC"] = ta.sma(curr_df['Close'], length = 50, append=True) > ta.sma(curr_df['Close'], length=200, append=True)
+
+            gc_list = []
+            dc_list = []
+
+            for ind in curr_df.index:
+                a = curr_df['SMA_50'][ind]
+                b = curr_df['SMA_200'][ind]
+                print(a)
+                print(b)
+                if pd.isna(a) or pd.isna(b):
+                    gc_list.append(False)
+                    dc_list.append(False)
+                    
+                else:
+                    gc_bool = a > b
+                    dc_bool = a < b
+                    gc_list.append(gc_bool)
+                    dc_list.append(dc_bool)
+
+            curr_df['GC'] = gc_list
+            curr_df['DC'] = dc_list
+
             sma_stock_postgress.append(curr_df)
         
         # Transform to df
@@ -372,14 +401,15 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
 
         # Create new dataframe that contains the past 200 days of data and the newly updated stock data
         df = old_df.append(new_df, ignore_index = True)
-
+        print("update sma df")
+        print(df)
         # Get unique dates to prevent duplicated data
         uniq_dates = new_df['Date'].unique()
         output = helper_sma_prices(df) # Calculate SMA, golden and death crosses
         output = output[output['Date'].isin(uniq_dates)] # Only keep records that are present in updated stock data
         return output
 
-    def sma_prices():
+    def sma_prices(): 
         """Obtain sma and golden, death crosess for stock data
         """
         check_dwh = if_f_stock_exists() # Check if fact table exists
@@ -395,21 +425,20 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             logging.info('Completed SMA, GC and DC initialisation')
         
         #Create final_stock postgres table
+        results = results.values.tolist()
         for result in results:
             print('this is result')
-            print(len(result))
+            # print(len(result))
             print(result)
             print('this is query')
             query = f'''    
                 INSERT INTO final_stock (Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock, SMA_50, SMA_200, GC, DC, Price_Category)
-                VALUES 
-                ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
+                VALUES ('{'NaN' if result[0] == None else result[0]}', '{'NaN' if result[1] == None else result[1]}', '{'NaN' if result[2] == None else result[2]}',
                 '{'NaN' if result[3] == None else result[3]}', '{'NaN' if result[4] == None else result[4]}','{'NaN' if result[5] == None else result[5]}',
                 '{'NaN' if result[6] == None else result[6]}','{'NaN' if result[7] == None else result[7]}','{'NaN' if result[8] == None else result[8]}',
                 '{'NaN' if result[9] == None else result[9]}', '{'NaN' if result[10] == None else result[10]}', '{'NaN' if result[11] == None else result[11]}',
                 '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}');
-                '''
-        													
+                '''				
             logging.info(f'Query: {query}')
             execute_query_with_hook(query)
             # result.to_sql('final_stock', c_engine)
@@ -425,20 +454,33 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         ex_df = ex_df.reset_index(drop=True)
 
         dates =  ex_df['Date'].to_list()
-        print(int_df)
-        
+
         # If interest date has more data, we start from first row
         if (len(ex_df) < len(int_df)):
             int_df = int_df.iloc[1:]
-        
+            print("enter condition")
+
+        print("new len int_Df")
+        print(len(int_df))
+
         results = int_df
         results['Date'] = dates
 
+        print("columns")
+        print(len(results.columns))
+
+        print("len of results")
+        print(len(results))
         # Rename columns to ensure consistency
         if 'date' in results.columns and 'inr_id' in results.columns:
             results.rename(columns={'date': 'Date', 'inr_id': 'INR_ID'}, inplace=True)    
 
         logging.info("Create final_interest_rate postgres table")
+
+        print("row column length")
+        print(len(results.iloc[0]))
+
+        results = results.values.tolist()
 
         for result in results :
             print('this is result')
@@ -454,7 +496,8 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
             '{'NaN' if result[6] == None else result[6]}','{'NaN' if result[7] == None else result[7]}','{'NaN' if result[8] == None else result[8]}',
             '{'NaN' if result[9] == None else result[9]}', '{'NaN' if result[10] == None else result[10]}', '{'NaN' if result[11] == None else result[11]}',
             '{'NaN' if result[12] == None else result[12]}', '{'NaN' if result[13] == None else result[13]}','{'NaN' if result[14] == None else result[14]}',
-            '{'NaN' if result[15] == None else result[15]}', '{'NaN' if result[16] == None else result[16]}', '{'NaN' if result[17] == None else result[17]}');
+            '{'NaN' if result[15] == None else int(result[15])}', '{'NaN' if result[16] == None else result[16]}', '{0 if result[17] == None or result[17] == "NaN" else result[17]}',
+            '{'NaN' if result[18] == None else result[18]}');
             '''
             logging.info(f'Query: {query}')
             execute_query_with_hook(query)
@@ -667,61 +710,6 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         '''
     )
     
-    # create_distinct_exchange_rates_daily_table = PostgresOperator (
-    # task_id = 'create_distinct_exchange_rates_daily_table',
-    # dag = dag, 
-    # postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
-    # sql = '''
-    #     CREATE TABLE IF NOT EXISTS distinct_exchange_rates_daily (
-    #     Date TIMESTAMP,
-    #     EXR_ID TEXT, 
-    #     eur_sgd TEXT,
-    #     gbp_sgd TEXT,
-    #     usd_sgd TEXT, 
-    #     aud_sgd TEXT,
-    #     cad_sgd TEXT,
-    #     cny_sgd_100 TEXT,
-    #     hkd_sgd_100 TEXT,
-    #     inr_sgd_100 TEXT,
-    #     idr_sgd_100 TEXT,
-    #     jpy_sgd_100 TEXT,
-    #     krw_sgd_100 TEXT,
-    #     myr_sgd_100 TEXT,
-    #     twd_sgd_100 TEXT,
-    #     nzd_sgd TEXT,
-    #     php_sgd_100 TEXT,
-    #     qar_sgd_100 TEXT,
-    #     sar_sgd_100 TEXT,
-    #     chf_sgd TEXT,
-    #     thb_sgd_100 TEXT,
-    #     aed_sgd_100 TEXT,
-    #     vnd_sgd_100 TEXT, 
-    #     ex_rate_preliminary TEXT, 
-    #     ex_rate_timestamp TEXT
-    #     );
-    #     '''
-    # )
-
-    #     # Python operator to create Postgres table for daily distinct stocks
-    # create_distinct_stock_daily_table = PostgresOperator ( 
-    # task_id = 'create_distinct_stock_daily_table',
-    # dag = dag, 
-    # postgres_conn_id="postgres_local", #inline with our airflow configuration setting (the connection id)
-    # sql = '''
-    #     CREATE TABLE IF NOT EXISTS distinct_stocks_daily (
-    #     Date TIMESTAMP,
-    #     Open REAL, 
-    #     High REAL,
-    #     Low REAL,
-    #     Close REAL,
-    #     Volume REAL,
-    #     Dividends REAL,
-    #     Stock_Splits INTEGER,
-    #     Stock TEXT 
-    #     );
-    #     '''
-    # )
-
     # Python operator to create Postgres table for daily final stocks
     create_final_stock_table = PostgresOperator (
     task_id = 'create_final_stock_table',
@@ -771,7 +759,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         standing_facility_deposit TEXT,	
         int_rate_preliminary integer, 	 
         int_rate_timestamp TEXT,	
-        on_rmb_facility_rate integer,	
+        on_rmb_facility_rate TEXT,	
         Date TIMESTAMP
         );
         '''
@@ -876,8 +864,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         dag = dag,
         postgres_conn_id = "postgres_local",
         sql = '''
-        SELECT DISTINCT to_timestamp(end_of_day, 'YYYY-MM-DD') as Date,
-        concat(end_of_day, '-INR') as INR_ID, 
+        SELECT DISTINCT Actual_Date, INR_ID,
         CAST(aggregate_volume AS double precision) AS aggregate_volume,
         CAST(calculation_method AS TEXT) AS calculation_method,
         CAST(comp_sora_1m AS double precision) AS comp_sora_1m,
@@ -894,6 +881,7 @@ def build_daily_postgres_taskgroup(dag: DAG) -> TaskGroup:
         CAST(standing_facility_deposit AS TEXT) AS standing_facility_deposit,
         CAST(int_rate_preliminary AS integer) AS int_rate_preliminary, 
         CAST(int_rate_timestamp AS TEXT) AS int_rate_timestamp,
+        Date
         into cast_interest_rate_daily
         from (SELECT * from final_interest_rate) as ir_daily
         '''  
