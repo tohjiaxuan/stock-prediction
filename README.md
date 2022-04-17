@@ -90,7 +90,7 @@ Note: you will first be prompted to create a new user. Create a new user with yo
     1. Name of role to add: postgres_local
     2. Enter your password
     3. Set the role to be a superuser
-### Connect to PostGres (After the PostGres Database has been created)
+### Connect to PostGres 
 1. Add a new Conn Id
     1. In Airflow, go to Admin > Connections > Select `+` to add connection to PostGres
 2. Fill in with the following parameters:
