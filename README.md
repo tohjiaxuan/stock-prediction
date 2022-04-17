@@ -106,14 +106,6 @@ Note: you will first be prompted to create a new user. Create a new user with yo
 1. Create database via CREATE DATABASE postgres_db;
 2. Connect to the database: \c postgres_db
 
-### Connect to Google Cloud (After obtaining the Google ServiceKey)
-1. Edit the `google_cloud_default` Conn Id
-    1. In Airflow, go to Admin > Connections > Select `google_cloud_default`
-2. Fill in with the following parameters:
-    1. Connection Id: google_cloud_default
-    2. Connection Type: Google Cloud
-    3. Keyfile JSON (Paste the contents of the Google ServiceKey file (in JSON format) obtained earlier into this field)
-
 # Creating connection(s) on Airflow
 ### Connect to Google Cloud (After obtaining the Google ServiceKey)
 1. Edit the `google_cloud_default` Conn Id
