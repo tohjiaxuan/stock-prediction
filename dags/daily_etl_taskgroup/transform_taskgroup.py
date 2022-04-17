@@ -79,7 +79,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         # Query 6000 rows because we require 200 days worth of past data for each stock
         # Value can change depending on the number of days for SMA / stock (30*200)
         query = """SELECT Date, Open, High, Low, Close, Volume, Dividends, Stock_Splits, Stock
-        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS` ORDER BY `Date` DESC LIMIT 6000"""
+        FROM `stockprediction-344203.stock_prediction_datawarehouse.F_STOCKS`  WHERE `Price_Category` = 'Stock' ORDER BY `Date` DESC LIMIT 6000"""
         df = bq_client.query(query).to_dataframe()
         return df
 
@@ -152,7 +152,7 @@ def build_transform_taskgroup(dag: DAG) -> TaskGroup:
         """
         bq_client = bigquery.Client()
         query = """SELECT * FROM `stockprediction-344203.stock_prediction_staging_dataset.distinct_interest_rate`
-        WHERE `Price_Category` = 'Stock' ORDER BY `Date` DESC"""
+        ORDER BY `Date` DESC"""
         df = bq_client.query(query).to_dataframe()
         logging.info('Queried from interest rate staging table')
 
